@@ -166,10 +166,7 @@ const mapstatedb = new Database('./mapstate.db');
 mapstatedb.exec(`CREATE TABLE IF NOT EXISTS user_state (
                  id TEXT PRIMARY KEY,
                  state TEXT,
-                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
-const getUserStmt = mapstatedb.prepare('SELECT state FROM user_state WHERE id = ?');
-const createUserStmt = mapstatedb.prepare('INSERT INTO user_state (id, state) VALUES (?, ?)');
-const updateUserStmt = mapstatedb.prepare('UPDATE user_state SET state = ? WHERE id = ?');
+                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
 
 app.use((req, res, next) => {
     // Read the signed cookie. If tampered with, req.signedCookies['anonymous_id'] will be false
@@ -187,12 +184,14 @@ app.use((req, res, next) => {
         });
 
         // Seed initial state in database for the new user
-        const mapstate = { center: appsettings.defaultposition,
-                           zoom: appsettings.startupzoom,
-                           rotation: 0,
-                           layerstates: [],
-                           radius: 25 };
-        createUserStmt.run(userId, JSON.stringify(mapstate));
+        const mapstate = `{ "center": ${appsettings.defaultposition},
+                            "zoom": ${appsettings.startupzoom},
+                            "rotation": 0,
+                            "layerstates": [],
+                            "radius": 25 }`;
+
+        mapstatedb.prepare('INSERT INTO user_state (id, state) VALUES (?, ?)').run(req.userId, mapstate);
+        console.log("New client record created");
     }
 
     // Attach the validated userId to the request object for downstream routes
@@ -245,64 +244,38 @@ app.get("/airportlist", (req, res) => {
     handleAirportListRequest(req, res);
 });
 
-app.get('/api/userdata', (req, res) => {
-    const row = getUserStmt.get(req.userId)
-    res.json(row ? JSON.parse(row.state) : {});
+app.get("/api/userdata", (req, res) => {
+    try {
+        const stmt = mapstatedb.prepare("SELECT state FROM user_state WHERE id = ?");
+        const row = stmt.get(req.userId); 
+
+        if (row && row.state) {
+            let mapstate = JSON.parse(row.state);
+            res.json(mapstate);
+            console.log(`Succeeded to get user_state for: ${req.userId}`); 
+        } else {
+            res.json({});
+        }
+    } catch (err) {
+        console.error("Failed to get user_state:", err);
+        res.status(500).json({ error: "Internal server error" });
+    }
 });
 
-// POST route to update user-specific state
-app.post('/api/userdata', (req, res) => {
-  const newState = req.body;
-  updateUserStmt.run(req.userId, JSON.stringify(newState));
-  res.status(204).end();
+app.post("/api/userdata", (req, res) => {
+    const newState = JSON.stringify(req.body);
+    try {
+        const stmt = mapstatedb.prepare(
+            "UPDATE user_state SET state = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+        );
+        const info = stmt.run(newState, req.userId);
+        console.log(`user_state updated successfully for user ${req.userId} (${info.changes} row modified)`);
+    }
+    catch (err) {
+        console.error("Failed to update user_state:", err);
+        res.status(500).json({ error: "Failed to persist user state" });
+    }
 });
-
-// app.get('/api/mapstate', (req, res) => {
-//     const row = getUserStmt.get(req.userId);
-//     if (!row) {
-//         return res.status(404).json({ error: 'User state not found' });
-//     }
-//     res.json(JSON.parse(row.state));
-// });
-
-// app.post('/api/mapstate', (req, res) => {
-//     try {
-//         const updatedState = JSON.stringify(req.body);
-//         updateUserStmt.run(updatedState, req.userId);
-//         res.status(204).end();
-//     } catch (error) {
-//         res.status(500).json({ error: 'Failed to save application state' });
-//     }
-// });
-// app.get("/api/mapstate", async (req, res) => {
-//     try {
-//         const row = mapstatedb.prepare("SELECT state FROM mapstate WHERE id = 1").get();
-//         if (row && row.state) {
-//             let mapstate = JSON.parse(row.state); //, timestamp: row.timestamp };
-//             res.json(mapstate);
-//         } else {
-//             res.json({});
-//         }
-//     } catch (err) {
-//         console.error("Failed to get mapstate:", err);
-//         res.status(204).end();
-//     }
-// });
-
-// app.post("/api/mapstate", (req, res) => {
-//     const newState = req.body;
-//     try {
-//         // Update the state and timestamp fields in the mapstate table where id = 1
-//         const stmt = mapstatedb.prepare("UPDATE mapstate SET state = ? WHERE id = 1");
-//         stmt.run(JSON.stringify(newState));
-//         res.status(204).end();
-//         console.log("Mapstate updated successfully");
-//     }
-//     catch (err) {
-//         console.error("Failed to update mapstate:", err);
-//         res.status(204).end();
-//     }
-// });
 
 app.get("/metadataset", (req, res) => {
     const dbKey = req.query.db;
