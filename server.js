@@ -1,7 +1,6 @@
 
 import 'dotenv/config'; 
 import express from 'express';
-import session from 'express-session';
 import Database from 'better-sqlite3';
 import cors from 'cors';
 import fs from 'fs/promises';

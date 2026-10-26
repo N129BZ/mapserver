@@ -15,8 +15,6 @@ pids
 *.seed
 *.pid.lock
 
-.env
-
 tiles/
 weather/
 airports/
