@@ -15,9 +15,9 @@ pids
 *.seed
 *.pid.lock
 
+dist/
 tiles/
 weather/
-airports/
 
 package-lock.json
 downloadmaps.sh
