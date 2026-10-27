@@ -168,13 +168,13 @@ const wss = new WebSocketServer({ noServer: true });
 app.use(cookieParser('9a7b78421d53bebd3d345f548fd7e3384b27df46d4c76385e58233ada5e59f76'));
 app.use((req, res, next) => {
     // Read the signed cookie. If tampered with, req.signedCookies['anonymous_id'] will be false
-    const reqUserId = req.signedCookies['anonymous_id'];
+    const reqUserId = req.signedCookies['mapuser_id'];
 
     if (!reqUserId) {
         const userId = randomUUID();
 
         // Configure the cookie to be secure and inaccessible to client-side scripts
-        res.cookie('anonymous_id', userId, {
+        res.cookie('mapuser_id', userId, {
             signed: true,
             httpOnly: true,
             secure: false, // Set to true if running over HTTPS
@@ -195,7 +195,7 @@ app.use((req, res, next) => {
         stmt.run(userId, JSON.stringify(mapstate), dttm);
         console.log("New client record created");
     } else {
-        console.log(`User: ${req.userId}`);
+        console.log(`User: ${reqUserId}`);
     }
     next();
 });
@@ -258,17 +258,18 @@ app.get("/airportlist", (req, res) => {
 });
 
 app.get("/api/userdata", (req, res) => {
-    if (!req.userId) {
+    const userId = req.signedCookies.mapuser_id; 
+    if (!userId) {
         return res.status(401).json({ error: "Unauthorized: Missing user identity" });
     }
     try {
         const stmt = mapstatedb.prepare("SELECT state FROM user_state WHERE id = ?");
-        const row = stmt.get(req.userId);
+        const row = stmt.get(userId);
 
         if (row && row.state) {
-            let mapstate = JSON.parse(row.state);
+            let mapstate = row.state; //JSON.parse(row.state);
             res.json(mapstate);
-            console.log(`Succeeded to get user_state for: ${req.userId}`);
+            console.log(`Succeeded to get user_state for: ${userId}`);
         } else {
             res.json({});
         }
@@ -279,7 +280,8 @@ app.get("/api/userdata", (req, res) => {
 });
 
 app.post("/api/userdata", (req, res) => {
-    if (!req.userId) {
+    const userId = req.signedCookies.mapuser_id; 
+    if (!userId) {
         return res.status(401).json({ error: "Unauthorized: Missing user identity" });
     }
 
@@ -287,9 +289,9 @@ app.post("/api/userdata", (req, res) => {
     try {
         const dttm = new Date().toLocaleString()
         const stmt = mapstatedb.prepare("UPDATE user_state SET state = ?, updated_at = ? WHERE id = ?");
-        stmt.run(newState, dttm, req.userId);
+        stmt.run(newState, dttm, userId);
 
-        console.log(`user_state updated successfully for user ${req.userId}`);
+        console.log(`user_state updated successfully for user ${userId}`);
         res.status(204).end();
     }
     catch (err) {
