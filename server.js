@@ -24,7 +24,7 @@ import { XMLParser } from 'fast-xml-parser';
 //    https://davidmegginson.github.io/ourairports-data/
 //////////////////////////////////////////////////////////////
 
-const COOKIE_SECRET = `f9dda3f3b95821e0ace59e8a2c11fb8d530c5fd7882c9efab7dd1bda5a6f4a05`;
+const COOKIE_SECRET = '9a7b78421d53bebd3d345f548fd7e3384b27df46d4c76385e58233ada5e59f76';
 const DIRNAME = cwd();
 const settingsPath = new URL(path.resolve(DIRNAME, 'appsettings.json'), import.meta.url);
 const appsettings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
@@ -165,7 +165,7 @@ const wss = new WebSocketServer({ noServer: true });
     }
 })();
 
-app.use(cookieParser('9a7b78421d53bebd3d345f548fd7e3384b27df46d4c76385e58233ada5e59f76'));
+app.use(cookieParser(COOKIE_SECRET));
 app.use((req, res, next) => {
     // Read the signed cookie. If tampered with, req.signedCookies['anonymous_id'] will be false
     const reqUserId = req.signedCookies['mapuser_id'];
@@ -194,8 +194,6 @@ app.use((req, res, next) => {
         const stmt = mapstatedb.prepare('INSERT INTO user_state (id, state, updated_at) VALUES (?, ?, ?)');
         stmt.run(userId, JSON.stringify(mapstate), dttm);
         console.log("New client record created");
-    } else {
-        console.log(`User: ${reqUserId}`);
     }
     next();
 });
