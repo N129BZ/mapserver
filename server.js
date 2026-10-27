@@ -1,14 +1,18 @@
 
 import express from 'express';
-import Database from 'better-sqlite3';
+import Database from 'node:sqlite';
 import cors from 'cors';
 import fs from 'fs/promises';
 import cookieParser from 'cookie-parser';
+import path from 'node:path';
+import favicon from 'serve-favicon';
+import { cwd } from 'node:process';
+import sqlite from 'node:sqlite';
 import { randomUUID } from 'node:crypto';
 import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
 import { atan, exp, pi, pow } from 'mathjs';
-import { readdirSync, statSync, createWriteStream } from 'node:fs';
+import { readdirSync, statSync, readFileSync, createWriteStream } from 'node:fs';
 import { Transform, Readable } from 'node:stream';
 import { rename } from 'node:fs/promises';
 import { pipeline } from 'node:stream/promises';
@@ -21,23 +25,28 @@ import { XMLParser } from 'fast-xml-parser';
 //////////////////////////////////////////////////////////////
 
 const COOKIE_SECRET = `f9dda3f3b95821e0ace59e8a2c11fb8d530c5fd7882c9efab7dd1bda5a6f4a05`;
+const DIRNAME = cwd();
+const settingsPath = new URL(path.resolve(DIRNAME, 'appsettings.json'), import.meta.url);
+const appsettings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
+const ROOT_PATH = path.resolve(DIRNAME, "dist");
+const TILE_PATH = path.resolve(DIRNAME, "tiles");
+const DBEngine = sqlite.Database || sqlite.DatabaseSync;
+const airportdb = new DBEngine(path.resolve(DIRNAME, "airports.db"), { readonly: true });
 
-const settingsPath = new URL('./appsettings.json', import.meta.url);
-const appsettings = JSON.parse(await fs.readFile(settingsPath, 'utf-8'));
-const DIRNAME = import.meta.dirname;
-const ROOT_PATH = `${DIRNAME}/dist`;
-const TILE_PATH = `${DIRNAME}/tiles`;
-const airportdb = new Database(`${DIRNAME}/airports.db`, { readonly: true });
 const connections = new Map();
-
 const databaselist = new Map();
+
+if (!DBEngine) {
+  throw new Error("This application requires Node.js v24+ with native SQLite support.");
+}
+
 function loadDatabaseList() {
     try {
         const dbfiles = readdirSync(TILE_PATH);
         dbfiles.forEach((dbname) => {
             if (dbname.endsWith(".db") || dbname.endsWith(".mbtiles")) {
                 var key = dbname.toLowerCase().split(".")[0];
-                var dbfile = `${TILE_PATH}/${dbname}`;
+                var dbfile = path.resolve(TILE_PATH, dbname);
                 databaselist.set(key, dbfile);
             }
         });
@@ -52,7 +61,7 @@ function loadDatabases() {
     try {
         databaselist.forEach((dbfile, key) => {
             console.log(dbfile);
-            const db = new Database(dbfile, { readonly: true });
+            const db = new DBEngine(dbfile, { readonly: true });
             databases.set(key, db);
         });
     }
@@ -146,8 +155,8 @@ const wss = new WebSocketServer({ noServer: true });
                 console.log(`Websocket closed, id: ${ws.tag}`);
             });
 
-            ws.on('message', (data) => { 
-                console.log(`Received message from client ${ws.tag}: ${data}`); 
+            ws.on('message', (data) => {
+                console.log(`Received message from client ${ws.tag}: ${data}`);
             });
         });
     }
@@ -156,25 +165,14 @@ const wss = new WebSocketServer({ noServer: true });
     }
 })();
 
-app.use(cookieParser(COOKIE_SECRET));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json({ limit: '10mb' }));
-app.use(cors());
-const mapstatedb = new Database('./mapstate.db');
-// Create user state table if it doesn't exist
-mapstatedb.exec(`CREATE TABLE IF NOT EXISTS user_state (
-                 id TEXT PRIMARY KEY,
-                 state TEXT,
-                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
-
+app.use(cookieParser('9a7b78421d53bebd3d345f548fd7e3384b27df46d4c76385e58233ada5e59f76'));
 app.use((req, res, next) => {
     // Read the signed cookie. If tampered with, req.signedCookies['anonymous_id'] will be false
-    let userId = req.signedCookies['anonymous_id'];
+    const reqUserId = req.signedCookies['anonymous_id'];
 
-    if (!userId) {
-        userId = randomUUID();
-    
+    if (!reqUserId) {
+        const userId = randomUUID();
+
         // Configure the cookie to be secure and inaccessible to client-side scripts
         res.cookie('anonymous_id', userId, {
             signed: true,
@@ -184,21 +182,36 @@ app.use((req, res, next) => {
         });
 
         // Seed initial state in database for the new user
-        const mapstate = `{ "center": ${appsettings.defaultposition},
-                            "zoom": ${appsettings.startupzoom},
-                            "rotation": 0,
-                            "layerstates": [],
-                            "radius": 25 }`;
+        const mapstate = {
+            center: appsettings.defaultposition,
+            zoom: appsettings.startupzoom,
+            rotation: 0,
+            layerstates: [],
+            radius: 25
+        };
 
-        mapstatedb.prepare('INSERT INTO user_state (id, state) VALUES (?, ?)').run(req.userId, mapstate);
+        const dttm = new Date().toLocaleString();
+        const stmt = mapstatedb.prepare('INSERT INTO user_state (id, state, updated_at) VALUES (?, ?, ?)');
+        stmt.run(userId, JSON.stringify(mapstate), dttm);
         console.log("New client record created");
+    } else {
+        console.log(`User: ${req.userId}`);
     }
-
-    // Attach the validated userId to the request object for downstream routes
-    req.userId = userId;
     next();
 });
 
+app.use(favicon("./favicon.png"));
+app.use(cookieParser(COOKIE_SECRET));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(cors());
+const mapstatedb = new DBEngine(path.resolve(DIRNAME, "mapstate.db"));
+// Create user state table if it doesn't exist
+mapstatedb.exec(`CREATE TABLE IF NOT EXISTS user_state (
+                 id TEXT PRIMARY KEY,
+                 state TEXT,
+                 updated_at TEXT)`);
 const appOptions = {
     maxAge: 900000,
     dotfiles: 'ignore',
@@ -221,7 +234,7 @@ const appOptions = {
 app.use(express.static(ROOT_PATH, appOptions));
 
 app.get('/', (req, res) => {
-    res.sendFile(`${ROOT_PATH}/map.html`);
+    res.sendFile(path.resolve(ROOT_PATH, "map.html"));
 });
 
 app.get("/appsettings", (req, res) => {
@@ -245,14 +258,17 @@ app.get("/airportlist", (req, res) => {
 });
 
 app.get("/api/userdata", (req, res) => {
+    if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized: Missing user identity" });
+    }
     try {
         const stmt = mapstatedb.prepare("SELECT state FROM user_state WHERE id = ?");
-        const row = stmt.get(req.userId); 
+        const row = stmt.get(req.userId);
 
         if (row && row.state) {
             let mapstate = JSON.parse(row.state);
             res.json(mapstate);
-            console.log(`Succeeded to get user_state for: ${req.userId}`); 
+            console.log(`Succeeded to get user_state for: ${req.userId}`);
         } else {
             res.json({});
         }
@@ -263,13 +279,18 @@ app.get("/api/userdata", (req, res) => {
 });
 
 app.post("/api/userdata", (req, res) => {
+    if (!req.userId) {
+        return res.status(401).json({ error: "Unauthorized: Missing user identity" });
+    }
+
     const newState = JSON.stringify(req.body);
     try {
-        const stmt = mapstatedb.prepare(
-            "UPDATE user_state SET state = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
-        );
-        const info = stmt.run(newState, req.userId);
-        console.log(`user_state updated successfully for user ${req.userId} (${info.changes} row modified)`);
+        const dttm = new Date().toLocaleString()
+        const stmt = mapstatedb.prepare("UPDATE user_state SET state = ?, updated_at = ? WHERE id = ?");
+        stmt.run(newState, dttm, req.userId);
+
+        console.log(`user_state updated successfully for user ${req.userId}`);
+        res.status(204).end();
     }
     catch (err) {
         console.error("Failed to update user_state:", err);
@@ -300,8 +321,8 @@ app.get("/tiles/tilesets", (req, res) => {
 });
 
 app.get("/tiles/*", (req, res) => {
-    const path = req.path; 
-    const parts = path.split("/"); 
+    const path = req.path;
+    const parts = path.split("/");
 
     if (parts.length < 6) {
         res.send("Invalid tile URL").end();
@@ -518,7 +539,7 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 async function sendWeatherData() {
     const sources = ["metars", "tafs", "aircraftreports"];
     for (const source of sources) {
-        const filePath = `${DIRNAME}/weather/${source}.json`;
+        const filePath = path.resolve(DIRNAME, "weather", `${source}.json`);
         const jsonData = await getJsonDataFromFile(filePath);
         const responseData = jsonData.response.data;
         await sendMessageToClients(JSON.stringify(responseData));
@@ -580,7 +601,7 @@ async function downloadAndExtractXML() {
 
     for (const source of sources) {
         const url = appsettings.addscurrentwxurl.replace("###", source);
-        const outputTmp = `${DIRNAME}/weather/${source}.json.tmp`;
+        const outputTmp = path.resolve(DIRNAME, "weather", `${source}.json.tmp`);
         const outputFile = outputTmp.replace(".tmp", "");
 
         if (shouldDownload(outputFile)) {

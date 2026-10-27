@@ -1,10 +1,10 @@
 {
-  "name": "stratuxexpress",
+  "name": "mapserver",
   "version": "1.0.0",
-  "description": "Simple webserver to test stratuxmap",
+  "description": "HTML application to display FAA charts and weather",
   "author": "n129bz <n129bz@outlook.com>",
   "keywords": [],
-  "license": "MIT",
+  "license": "Apache-2.0",
   "main": "index.js",
   "type": "module",
   "scripts": {
@@ -12,7 +12,6 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "better-sqlite3": "^13.0.3",
     "cd": "^0.3.3",
     "child_process": "^1.0.2",
     "cookie-parser": "^1.4.7",
@@ -20,10 +19,12 @@
     "csv-parser": "^3.2.1",
     "express": "^4.21.2",
     "fast-xml-parser": "^5.7.2",
+    "favicon": "^0.0.2",
     "http": "^0.0.1-security",
     "json2html": "^0.0.8",
     "mathjs": "^15.2.0",
     "re": "^0.1.4",
+    "serve-favicon": "^2.5.1",
     "source-map-js": "^1.2.2",
     "ws": "^8.18.3",
     "xmlhttprequest": "^1.8.0"
