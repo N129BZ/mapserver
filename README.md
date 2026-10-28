@@ -8,12 +8,11 @@ This server is the partner of https://github.com/mapclient and serves the follow
 
 - serves any mbtiles map tile databases found in the `tiles/` directory
 - exposes map metadata and tile endpoints for map clients
-- determines current chart date from FAA database
 - downloads current weather data from https://aviationweather.gov/
 - downloads include current Metars, TAFs, and Pireps 
 - download update intervals are controlled by user settings
 - streams weather METAR/TAF/aircraft report data to client over WebSocket    
-- provides airport lookup endpoints using the bundled `airports.db`
+- provides airport lookup endpoints using the bundled world-wide airport database
 - stores per-user map state in a local SQLite database using signed cookies
 
 It is intended for browser-based map usage and is especially useful for aviation charts and meteorological overlays.
@@ -21,17 +20,16 @@ It is intended for browser-based map usage and is especially useful for aviation
 ## Repository layout
 
 - `server.js` — Express server, database loading, weather downloads, and tile endpoints
-- `dist/` — static frontend assets, including `map.html` and `map.js`
-- `tiles/` — MBTiles/SQLite map datasets (for example FAA charts)
-- `weather/` — local weather JSON files used by the live data feed
-- `airports.db` — SQLite airport database used for runway and frequency queries
-- `mapstate.db` — user state persistence for map settings
-- `appsettings.json` — runtime configuration for ports, weather sources, and defaults
-- `downloadmaps.sh` — helper for fetching map data
+- `dist/` — static frontend assets, including all files from mapclient vite build 
+- `tiles/` — MBTiles/SQLite map datasets. App Looks for MBTiles databases to serve map tiles
+- `weather/` — Aviationweather.gov weather files, downloaded at a user-defined interval and immediately sent to mapclient(s) 
+- `airports.db` — SQLite airport database used for airport data, runways, and frequencies
+- `mapstate.db` — user state persistence for map settings - picks up where you left off
+- `appsettings.json` — runtime configuration for ports, weather source URLs, and app defaults
 
 ## Requirements
 
-- Node.js 18+
+- Node.js 24+
 - npm
 - Local map database files in `tiles/` with `.db` or `.mbtiles` extensions
 - Optional weather update sources and internet connectivity for pulling ADDS data
@@ -46,7 +44,7 @@ npm install
 
 The main runtime settings live in `appsettings.json`:
 
-```json
+```partial json settings example showing defaults
 {
   "httpport": 8500,
   "wsroute": "/api/chartserver-stream",
@@ -77,7 +75,7 @@ Or run directly:
 node server.js
 ```
 
-The server listens on `0.0.0.0:8500` by default and serves the app at:
+The server listens on `0.0.0.0:8500` by default but will use the port you designate:
 
 ```text
 http://localhost:8500/

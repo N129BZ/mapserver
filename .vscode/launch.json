@@ -13,7 +13,7 @@
             ],
             "program": "${workspaceFolder}/server.js",
             "console":"internalConsole",
-            "runtimeExecutable": "/home/bro/.nvm/versions/node/v26.12.1/bin/node"
+            "runtimeExecutable": "node"
         }
     ]
 }
