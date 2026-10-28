@@ -21,7 +21,6 @@
     "json2html": "^0.0.8",
     "mathjs": "^15.2.0",
     "re": "^0.1.4",
-    "serve-favicon": "^2.5.1",
     "ws": "^8.18.3",
     "xmlhttprequest": "^1.8.0"
   }

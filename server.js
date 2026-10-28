@@ -198,7 +198,6 @@ app.use((req, res, next) => {
     next();
 });
 
-app.use(favicon("./favicon.png"));
 app.use(cookieParser(COOKIE_SECRET));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
