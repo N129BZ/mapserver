@@ -5,7 +5,6 @@ import cors from 'cors';
 import fs from 'fs/promises';
 import cookieParser from 'cookie-parser';
 import path from 'node:path';
-import favicon from 'serve-favicon';
 import { cwd } from 'node:process';
 import sqlite from 'node:sqlite';
 import { randomUUID } from 'node:crypto';
