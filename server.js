@@ -25,7 +25,7 @@ import { XMLParser } from 'fast-xml-parser';
 
 const COOKIE_SECRET = '9a7b78421d53bebd3d345f548fd7e3384b27df46d4c76385e58233ada5e59f76';
 const DIRNAME = cwd();
-const settingsPath = new URL(path.resolve(DIRNAME, 'appsettings.json'), import.meta.url);
+const settingsPath = path.resolve(DIRNAME, 'appsettings.json');
 const appsettings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
 const ROOT_PATH = path.resolve(DIRNAME, "dist");
 const TILE_PATH = path.resolve(DIRNAME, "tiles");
