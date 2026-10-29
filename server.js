@@ -13,7 +13,7 @@ import { WebSocketServer } from 'ws';
 import { atan, exp, pi, pow } from 'mathjs';
 import { readdirSync, statSync, readFileSync, createWriteStream } from 'node:fs';
 import { Transform, Readable } from 'node:stream';
-import { rename } from 'node:fs/promises';
+import { rename, writeFile } from 'node:fs/promises';
 import { pipeline } from 'node:stream/promises';
 import { createGunzip } from 'node:zlib';
 import { XMLParser } from 'fast-xml-parser';
@@ -233,8 +233,10 @@ app.get('/', (req, res) => {
     res.sendFile(path.resolve(ROOT_PATH, "map.html"));
 });
 
-app.get("/appsettings", (req, res) => {
-    res.json(appsettings);
+app.get("/api/appsettings", (req, res) => {
+    // give client freshly read settings in case of running edits
+    const clientsettings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
+    res.json(clientsettings);
 });
 
 app.get("/databaselist", (req, res) => {
@@ -293,6 +295,28 @@ app.post("/api/userdata", (req, res) => {
     catch (err) {
         console.error("Failed to update user_state:", err);
         res.status(500).json({ error: "Failed to persist user state" });
+    }
+});
+
+app.get("/api/settings/edit", (req, res) => {
+    res.sendFile(path.resolve(DIRNAME, "settingsedit.html"));
+});
+
+app.post("/api/settings/edit", async(req,res) => {
+    try {
+        // req.body contains the parsed JSON object
+        const dataToSave = req.body;
+        const filePath = path.join(DIRNAME, 'appsettings.json');
+
+        await writeFile(filePath, JSON.stringify(dataToSave, null, 2), 'utf8');
+
+        console.log(`appsettings.json successfully written to ${filePath}`);
+        
+        return res.status(200).json({ message: 'File written successfully' });
+
+    } catch (error) {
+        console.error('Error writing file:', error);
+        return res.status(500).json({ error: 'Internal server error failed to write file' });
     }
 });
 
@@ -501,7 +525,6 @@ function loadTile(z, x, y, response, db) {
         const row = stmt.get(z, x, y); // Pass parameters directly
 
         if (!row || !row.tile_data) {
-            //response.writeHead(404);
             response.end();
         } else {
             response.writeHead(200);

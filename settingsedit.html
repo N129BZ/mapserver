@@ -1,0 +1,2700 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Map Server System Settings | Configuration Editor</title>
+  <meta name="description" content="Modern configuration and telemetry settings editor for Map Server, Nexrad radar, METAR feeds, touch gesture tuning, and map defaults.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- Optional Leaflet map for interactive position preview -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="" defer></script>
+  
+  <style>
+    :root {
+      --bg-base: #0b0f19;
+      --bg-surface: #111827;
+      --bg-card: rgba(17, 24, 39, 0.78);
+      --bg-card-hover: rgba(31, 41, 55, 0.85);
+      --bg-input: #1f2937;
+      --bg-input-focus: #111827;
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-accent: rgba(56, 189, 248, 0.4);
+      --border-focus: #38bdf8;
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --text-dim: #6b7280;
+      
+      --accent-cyan: #38bdf8;
+      --accent-cyan-rgb: 56, 189, 248;
+      --accent-blue: #2563eb;
+      --accent-emerald: #10b981;
+      --accent-emerald-rgb: 16, 185, 129;
+      --accent-amber: #f59e0b;
+      --accent-rose: #f43f5e;
+      --accent-purple: #a855f7;
+
+      --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.2);
+      --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.35);
+      --shadow-lg: 0 10px 30px -5px rgba(0, 0, 0, 0.5);
+      --shadow-glow: 0 0 20px rgba(56, 189, 248, 0.25);
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --radius-pill: 9999px;
+      --transition-fast: 0.15s ease;
+      --transition-normal: 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    [data-theme="light"] {
+      --bg-base: #f8fafc;
+      --bg-surface: #ffffff;
+      --bg-card: rgba(255, 255, 255, 0.88);
+      --bg-card-hover: rgba(248, 250, 252, 0.95);
+      --bg-input: #f1f5f9;
+      --bg-input-focus: #ffffff;
+      --border-subtle: rgba(0, 0, 0, 0.09);
+      --border-accent: rgba(2, 132, 199, 0.35);
+      --border-focus: #0284c7;
+      --text-main: #0f172a;
+      --text-muted: #475569;
+      --text-dim: #94a3b8;
+      --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+      --shadow-lg: 0 12px 28px -4px rgba(0, 0, 0, 0.12);
+      --shadow-glow: 0 0 20px rgba(2, 132, 199, 0.18);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg-base);
+      background-image: 
+        radial-gradient(ellipse at 50% -10%, rgba(56, 189, 248, 0.12) 0%, transparent 60%),
+        radial-gradient(circle at 10% 20%, rgba(168, 85, 247, 0.06) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.06) 0%, transparent 45%);
+      background-attachment: fixed;
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      line-height: 1.5;
+      font-size: 14.5px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Top Navigation & App Bar */
+    .app-header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: var(--bg-card);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border-bottom: 1px solid var(--border-subtle);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .header-container {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .brand-section {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, #0284c7, #38bdf8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
+      flex-shrink: 0;
+      position: relative;
+    }
+
+    .brand-icon::after {
+      content: '';
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(255,255,255,0.4);
+      pointer-events: none;
+    }
+
+    .brand-info h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-badge {
+      font-size: 0.65rem;
+      font-family: 'JetBrains Mono', monospace;
+      padding: 2px 7px;
+      border-radius: var(--radius-pill);
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent-cyan);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .brand-sub {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .server-route-tag {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--accent-cyan);
+      background: rgba(56, 189, 248, 0.1);
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    /* Search Filter Input */
+    .search-box {
+      position: relative;
+      width: 220px;
+    }
+
+    .search-box input {
+      width: 100%;
+      height: 36px;
+      padding: 0 12px 0 34px;
+      font-size: 0.82rem;
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-pill);
+      color: var(--text-main);
+      outline: none;
+      transition: all var(--transition-fast);
+    }
+
+    .search-box input:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+      width: 260px;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 11px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-dim);
+      pointer-events: none;
+      width: 15px;
+      height: 15px;
+    }
+
+    /* Buttons & Badges */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 8px 15px;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      border: 1px solid transparent;
+      outline: none;
+      transition: all var(--transition-fast);
+      user-select: none;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #0284c7, #0ea5e9);
+      color: #ffffff;
+      box-shadow: 0 2px 10px rgba(14, 165, 233, 0.35);
+    }
+
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #0369a1, #0284c7);
+      box-shadow: 0 4px 16px rgba(14, 165, 233, 0.5);
+      transform: translateY(-1px);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .btn-secondary {
+      background: var(--bg-input);
+      color: var(--text-main);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .btn-secondary:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--text-dim);
+    }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .btn-outline:hover {
+      color: var(--text-main);
+      border-color: var(--text-muted);
+      background: rgba(255,255,255,0.03);
+    }
+
+    .btn-icon {
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      border-radius: var(--radius-md);
+    }
+
+    /* Status Pill */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      padding: 4px 10px;
+      border-radius: var(--radius-pill);
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent-emerald);
+      box-shadow: 0 0 8px var(--accent-emerald);
+      animation: pulse 2s infinite;
+    }
+
+    .status-badge.unsaved .status-dot {
+      background: var(--accent-amber);
+      box-shadow: 0 0 8px var(--accent-amber);
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(1.15); }
+    }
+
+    /* Main Container & Grid */
+    .main-content {
+      max-width: 1360px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 28px 24px 80px;
+      flex: 1;
+    }
+
+    .page-intro {
+      margin-bottom: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      gap: 16px;
+      border-bottom: 1px solid var(--border-subtle);
+      padding-bottom: 18px;
+    }
+
+    .page-intro-text h2 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      color: var(--text-main);
+    }
+
+    .page-intro-text p {
+      color: var(--text-muted);
+      font-size: 0.88rem;
+      margin-top: 4px;
+    }
+
+    .quick-stats {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .stat-chip {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 6px 12px;
+      font-size: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .stat-chip span.label {
+      color: var(--text-dim);
+    }
+    .stat-chip span.val {
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--accent-cyan);
+    }
+
+    /* Settings Category Layout */
+    .settings-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+      gap: 24px;
+      align-items: start;
+    }
+
+    @media (max-width: 900px) {
+      .settings-grid {
+        grid-template-columns: 1fr;
+      }
+      .search-box {
+        width: 100%;
+      }
+      .search-box input:focus {
+        width: 100%;
+      }
+    }
+
+    /* Category Cards */
+    .category-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
+      overflow: hidden;
+      transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+      position: relative;
+    }
+
+    .category-card:hover {
+      border-color: rgba(56, 189, 248, 0.25);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .card-header {
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-subtle);
+      background: rgba(255, 255, 255, 0.015);
+    }
+
+    .card-title-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .card-icon-bubble {
+      width: 34px;
+      height: 34px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(56, 189, 248, 0.12);
+      color: var(--accent-cyan);
+      flex-shrink: 0;
+    }
+
+    .category-card[data-cat="weather"] .card-icon-bubble {
+      background: rgba(168, 85, 247, 0.15);
+      color: var(--accent-purple);
+    }
+
+    .category-card[data-cat="map"] .card-icon-bubble {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--accent-emerald);
+    }
+
+    .category-card[data-cat="display"] .card-icon-bubble {
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--accent-amber);
+    }
+
+    .card-header h3 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .card-header p {
+      font-size: 0.76rem;
+      color: var(--text-muted);
+    }
+
+    .card-badge-count {
+      font-size: 0.72rem;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-dim);
+      background: rgba(255, 255, 255, 0.05);
+      padding: 2px 8px;
+      border-radius: var(--radius-pill);
+    }
+
+    .card-body {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* Form Field Layouts */
+    .field-row {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      transition: opacity var(--transition-fast);
+    }
+
+    .field-row.hidden-by-search {
+      display: none !important;
+    }
+
+    .field-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 10px;
+    }
+
+    .field-label {
+      font-size: 0.84rem;
+      font-weight: 600;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .field-key {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      font-weight: 400;
+    }
+
+    .field-desc {
+      font-size: 0.77rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    /* Text & Number Inputs */
+    .input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .input-prefix {
+      position: absolute;
+      left: 12px;
+      color: var(--text-dim);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .input-suffix {
+      position: absolute;
+      right: 12px;
+      color: var(--text-dim);
+      font-size: 0.76rem;
+      font-weight: 500;
+      pointer-events: none;
+    }
+
+    .form-input {
+      width: 100%;
+      height: 40px;
+      padding: 0 14px;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.85rem;
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      color: var(--text-main);
+      outline: none;
+      transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background-color var(--transition-fast);
+    }
+
+    .form-input.has-prefix {
+      padding-left: 32px;
+    }
+
+    .form-input.has-suffix {
+      padding-right: 56px;
+    }
+
+    .form-input.font-mono {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+    }
+
+    .form-input:focus {
+      border-color: var(--border-focus);
+      background: var(--bg-input-focus);
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+    }
+
+    .form-input:hover:not(:focus) {
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    /* Range Sliders with sync number display */
+    .range-control-group {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .range-slider {
+      flex: 1;
+      height: 6px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: var(--bg-input);
+      border-radius: var(--radius-pill);
+      outline: none;
+      cursor: pointer;
+    }
+
+    .range-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      box-shadow: 0 0 8px rgba(56, 189, 248, 0.5);
+      cursor: pointer;
+      transition: transform var(--transition-fast);
+    }
+
+    .range-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    .range-number-box {
+      width: 80px;
+      text-align: right;
+    }
+
+    /* Toggle Switch Component */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      border-radius: var(--radius-md);
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-subtle);
+      transition: background var(--transition-fast);
+      gap: 16px;
+    }
+
+    .toggle-row:hover {
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .toggle-label-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      flex: 1;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 46px;
+      height: 26px;
+      flex-shrink: 0;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .switch-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      transition: var(--transition-normal);
+      border-radius: 34px;
+    }
+
+    .switch-slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: #fff;
+      transition: var(--transition-normal);
+      border-radius: 50%;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+    }
+
+    input:checked + .switch-slider {
+      background-color: var(--accent-cyan);
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+    }
+
+    input:checked + .switch-slider:before {
+      transform: translateX(20px);
+    }
+
+    /* Distance Unit Segmented Button Group */
+    .segmented-group {
+      display: flex;
+      background: var(--bg-input);
+      padding: 4px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-subtle);
+      gap: 4px;
+    }
+
+    .segmented-option {
+      flex: 1;
+      position: relative;
+    }
+
+    .segmented-option input[type="radio"] {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .segmented-option label {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 10px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      text-align: center;
+      user-select: none;
+    }
+
+    .segmented-option label .code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .segmented-option label .unit-name {
+      font-size: 0.68rem;
+      color: var(--text-dim);
+      margin-top: 1px;
+    }
+
+    .segmented-option input[type="radio"]:checked + label {
+      background: var(--bg-surface);
+      color: var(--accent-cyan);
+      box-shadow: var(--shadow-sm);
+      border: 1px solid var(--border-accent);
+    }
+
+    .segmented-option input[type="radio"]:checked + label .code {
+      color: var(--accent-cyan);
+    }
+
+    /* Coordinate Map Section */
+    .map-preview-box {
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      margin-top: 8px;
+      background: var(--bg-input);
+      position: relative;
+    }
+
+    #positionMap {
+      width: 100%;
+      height: 220px;
+      background: #1e293b;
+    }
+
+    .map-bar {
+      padding: 8px 12px;
+      background: var(--bg-surface);
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-size: 0.74rem;
+      color: var(--text-muted);
+    }
+
+    .coord-inputs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 6px;
+    }
+
+    .coord-field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .coord-field label {
+      font-size: 0.73rem;
+      color: var(--text-dim);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .preset-pills {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    .preset-pill {
+      font-size: 0.7rem;
+      padding: 3px 8px;
+      border-radius: var(--radius-pill);
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+
+    .preset-pill:hover {
+      background: rgba(56, 189, 248, 0.15);
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+    }
+
+    /* Interval helper pills */
+    .interval-pills {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+
+    .interval-pill {
+      font-size: 0.7rem;
+      font-family: 'JetBrains Mono', monospace;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-dim);
+      cursor: pointer;
+    }
+
+    .interval-pill:hover {
+      color: var(--accent-purple);
+      border-color: var(--accent-purple);
+      background: rgba(168, 85, 247, 0.1);
+    }
+
+    .human-time-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.72rem;
+      color: var(--accent-purple);
+      font-family: 'JetBrains Mono', monospace;
+      background: rgba(168, 85, 247, 0.1);
+      padding: 2px 7px;
+      border-radius: 4px;
+    }
+
+    /* Floating Action Bar (Sticky Footer) */
+    .floating-bar {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 40;
+      background: var(--bg-card);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-pill);
+      padding: 8px 14px 8px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
+      transition: all var(--transition-normal);
+      max-width: 90vw;
+    }
+
+    .floating-bar-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.82rem;
+    }
+
+    /* Live JSON Inspector Drawer */
+    .drawer-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(4px);
+      z-index: 90;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--transition-fast);
+    }
+
+    .drawer-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .json-drawer {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: 540px;
+      max-width: 94vw;
+      height: 100vh;
+      background: var(--bg-surface);
+      border-left: 1px solid var(--border-subtle);
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      box-shadow: -10px 0 35px rgba(0,0,0,0.6);
+      transform: translateX(100%);
+      transition: transform var(--transition-normal);
+    }
+
+    .json-drawer.open {
+      transform: translateX(0);
+    }
+
+    .drawer-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .drawer-header h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .drawer-body {
+      padding: 16px;
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .json-viewer-box {
+      flex: 1;
+      background: #080c14;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      overflow: auto;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      line-height: 1.6;
+      color: #94a3b8;
+    }
+
+    .json-viewer-box .json-key {
+      color: #38bdf8;
+    }
+    .json-viewer-box .json-string {
+      color: #a7f3d0;
+    }
+    .json-viewer-box .json-number {
+      color: #fde047;
+    }
+    .json-viewer-box .json-boolean {
+      color: #f472b6;
+    }
+
+    .raw-textarea {
+      width: 100%;
+      height: 180px;
+      background: #080c14;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      color: #e2e8f0;
+      outline: none;
+      resize: vertical;
+    }
+
+    .raw-textarea:focus {
+      border-color: var(--border-focus);
+    }
+
+    /* Toast Notification */
+    .toast-container {
+      position: fixed;
+      bottom: 84px;
+      right: 24px;
+      z-index: 110;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+    }
+
+    .toast {
+      pointer-events: auto;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-main);
+      padding: 12px 18px;
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-lg);
+      font-size: 0.84rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      animation: slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      max-width: 380px;
+    }
+
+    .toast.success {
+      border-left: 4px solid var(--accent-emerald);
+    }
+    .toast.error {
+      border-left: 4px solid var(--accent-rose);
+    }
+    .toast.info {
+      border-left: 4px solid var(--accent-cyan);
+    }
+
+    @keyframes slideInRight {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    /* Spinner Animation */
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: #ffffff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Modified field indicator */
+    .modified-tag {
+      font-size: 0.65rem;
+      font-weight: 600;
+      color: var(--accent-amber);
+      background: rgba(245, 158, 11, 0.15);
+      padding: 1px 5px;
+      border-radius: 3px;
+      margin-left: 6px;
+      display: none;
+    }
+
+    .is-dirty .modified-tag {
+      display: inline-block;
+    }
+
+    /* URL Test link */
+    .url-test-btn {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 0.7rem;
+      padding: 3px 8px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      color: var(--text-muted);
+      cursor: pointer;
+      text-decoration: none;
+    }
+
+    .url-test-btn:hover {
+      color: var(--accent-cyan);
+      border-color: var(--accent-cyan);
+    }
+
+    /* Keyboard shortcut helper */
+    kbd {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--border-subtle);
+      padding: 2px 5px;
+      border-radius: 3px;
+      color: var(--text-dim);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- App Header -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand-section">
+        <div class="brand-icon" title="Avionics & Map Server Telemetry">
+          <!-- Compass / Radar SVG -->
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
+          </svg>
+        </div>
+        <div class="brand-info">
+          <h1>
+            Map Server/Client Settings
+            <span class="brand-badge">v2.4 API</span>
+          </h1>
+          <div class="brand-sub">
+            Settings: <span class="server-route-tag" id="label-get-route">GET /api/appsettings</span>
+            &bull; Save: <span class="server-route-tag" id="label-save-route">POST /api/settings/edit</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <!-- Live Search Filter -->
+        <div class="search-box">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" id="input-search-settings" placeholder="Filter settings... (Ctrl+K)" aria-label="Filter settings">
+        </div>
+
+        <!-- Connection / Status Badge -->
+        <div class="status-badge" id="pill-sync-status">
+          <div class="status-dot"></div>
+          <span id="text-sync-status">Connected</span>
+        </div>
+
+        <!-- Theme Toggle -->
+        <button type="button" class="btn btn-outline btn-icon" id="btn-toggle-theme" title="Toggle Dark / Light Theme" aria-label="Toggle Theme">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+          </svg>
+        </button>
+
+        <!-- View JSON Drawer -->
+        <button type="button" class="btn btn-secondary" id="btn-open-json-drawer" title="Inspect or import raw JSON">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="16 18 22 12 16 6"></polyline>
+            <polyline points="8 6 2 12 8 18"></polyline>
+          </svg>
+          <span>JSON Schema</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <div class="page-intro">
+      <div class="page-intro-text">
+        <h2>Map Server/Client Configuration Editor</h2>
+        <p>Edit backend parameters, Doppler weather WMS feeds, METAR caching, map center coordinates, and tablet gestures.</p>
+      </div>
+      <div class="quick-stats">
+        <div class="stat-chip">
+          <span class="label">HTTP Port:</span>
+          <span class="val" id="stat-port">8500</span>
+        </div>
+        <div class="stat-chip">
+          <span class="label">WS Route:</span>
+          <span class="val" id="stat-ws">/api/Map Server-stream</span>
+        </div>
+        <div class="stat-chip">
+          <span class="label">Weather Cache:</span>
+          <span class="val" id="stat-wx-interval">11 min</span>
+        </div>
+        <div class="stat-chip">
+          <span class="label">Units:</span>
+          <span class="val" id="stat-units">Statute (sm)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- The Interactive Settings Form -->
+    <form id="settings-form" onsubmit="event.preventDefault();">
+      <div class="settings-grid">
+
+        <!-- ================= CARD 1: Server & Networking ================= -->
+        <section class="category-card" data-cat="server" id="card-server">
+          <div class="card-header">
+            <div class="card-title-group">
+              <div class="card-icon-bubble">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+                  <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+                  <line x1="6" y1="6" x2="6.01" y2="6"></line>
+                  <line x1="6" y1="18" x2="6.01" y2="18"></line>
+                </svg>
+              </div>
+              <div>
+                <h3>Server & Networking</h3>
+                <p>Daemon port, WebSocket streaming, and telemetry diagnostics</p>
+              </div>
+            </div>
+            <span class="card-badge-count">3 settings</span>
+          </div>
+          <div class="card-body">
+
+            <!-- httpport -->
+            <div class="field-row" id="field-httpport">
+              <div class="field-header">
+                <label for="input-httpport" class="field-label">
+                  HTTP Server Port
+                  <span class="modified-tag">MODIFIED</span>
+                </label>
+                <span class="field-key">httpport</span>
+              </div>
+              <p class="field-desc">TCP listen port for Map Server web application and REST endpoints.</p>
+              <div class="input-wrapper">
+                <input type="number" id="input-httpport" name="httpport" class="form-input font-mono" min="1" max="65535" required>
+                <span class="input-suffix">1-65535</span>
+              </div>
+            </div>
+
+            <!-- wsroute -->
+            <div class="field-row" id="field-wsroute">
+              <div class="field-header">
+                <label for="input-wsroute" class="field-label">
+                  WebSocket Route
+                  <span class="modified-tag">MODIFIED</span>
+                </label>
+                <span class="field-key">wsroute</span>
+              </div>
+              <p class="field-desc">Live bidirectional stream path for real-time aircraft traffic, GPS fixes, and weather updates.</p>
+              <div class="input-wrapper">
+                <span class="input-prefix">ws://</span>
+                <input type="text" id="input-wsroute" name="wsroute" class="form-input font-mono has-prefix" required placeholder="/api/Map Server-stream">
+              </div>
+            </div>
+
+            <!-- debug -->
+            <div class="field-row" id="field-debug">
+              <div class="toggle-row">
+                <div class="toggle-label-wrap">
+                  <span class="field-label">
+                    Debug Diagnostics Mode
+                    <span class="modified-tag">MODIFIED</span>
+                  </span>
+                  <span class="field-desc">Emit verbose request logs, socket heartbeats, and raw WMS tile debug metrics.</span>
+                  <span class="field-key">debug</span>
+                </div>
+                <label class="switch" for="toggle-debug">
+                  <input type="checkbox" id="toggle-debug" name="debug">
+                  <span class="switch-slider"></span>
+                </label>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ================= CARD 2: Weather & Radar Feeds ================= -->
+        <section class="category-card" data-cat="weather" id="card-weather">
+          <div class="card-header">
+            <div class="card-title-group">
+              <div class="card-icon-bubble">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"></path>
+                </svg>
+              </div>
+              <div>
+                <h3>Weather URLs</h3>
+                <p>NEXRAD WMS feeds, Aviation Weather Center cache endpoints</p>
+              </div>
+            </div>
+            <span class="card-badge-count">5 settings</span>
+          </div>
+          <div class="card-body">
+
+            <!-- animatedwxurl -->
+            <div class="field-row" id="field-animatedwxurl">
+              <div class="field-header">
+                <label for="input-animatedwxurl" class="field-label">
+                  Animated Radar WMS URL
+                  <span class="modified-tag">MODIFIED</span>
+                </label>
+                <span class="field-key">animatedwxurl</span>
+              </div>
+              <p class="field-desc">Iowa Environmental Mesonet (IEM) / NOAA base reflectivty radar tile generator.</p>
+              <div class="input-wrapper">
+                <input type="url" id="input-animatedwxurl" name="animatedwxurl" class="form-input font-mono" style="padding-right: 70px;" required>
+                <a href="#" target="_blank" id="link-test-radar" class="url-test-btn" rel="noreferrer">Test URL</a>
+              </div>
+            </div>
+
+            <!-- addscurrentwxurl -->
+            <div class="field-row" id="field-addscurrentwxurl">
+              <div class="field-header">
+                <label for="input-addscurrentwxurl" class="field-label">
+                  ADDS Current Weather URL (XML)
+                  <span class="modified-tag">MODIFIED</span>
+                </label>
+                <span class="field-key">addscurrentwxurl</span>
+              </div>
+              <p class="field-desc">AviationWeather.gov compressed XML cache feed. <code>###</code> is substituted by timestamp/type.</p>
+              <div class="input-wrapper">
+                <input type="text" id="input-addscurrentwxurl" name="addscurrentwxurl" class="form-input font-mono" required>
+              </div>
+            </div>
+
+            <!-- addscurrentwxurlcsv -->
+            <div class="field-row" id="field-addscurrentwxurlcsv">
+              <div class="field-header">
+                <label for="input-addscurrentwxurlcsv" class="field-label">
+                  ADDS Current Weather URL (CSV)
+                  <span class="modified-tag">MODIFIED</span>
+                </label>
+                <span class="field-key">addscurrentwxurlcsv</span>
+              </div>
+              <p class="field-desc">Lightweight compressed CSV cache feed for low-bandwidth cellular/satellite links.</p>
+              <div class="input-wrapper">
+                <input type="text" id="input-addscurrentwxurlcsv" name="addscurrentwxurlcsv" class="form-input font-mono" required>
+              </div>
+            </div>
+
+            <!-- wxupdateintervalmsec -->
+            <div class="field-row" id="field-wxupdateintervalmsec">
+              <div class="field-header">
+                <label for="input-wxupdateintervalmsec" class="field-label">
+                  Weather Polling Interval
+                  <span class="modified-tag">MODIFIED</span>
+                </label>
+                <span class="human-time-badge" id="badge-human-interval">11.0 min (660,000 ms)</span>
+              </div>
+              <p class="field-desc">Frequency in milliseconds to fetch updated METARs, TAFs, and Doppler frames.</p>
+              <div class="input-wrapper">
+                <input type="number" id="input-wxupdateintervalmsec" name="wxupdateintervalmsec" class="form-input font-mono has-suffix" min="10000" step="5000" required>
+                <span class="input-suffix">ms</span>
+              </div>
+              <div class="interval-pills">
+                <span class="interval-pill" onclick="setIntervalVal(300000)">5 min (300k)</span>
+                <span class="interval-pill" onclick="setIntervalVal(600000)">10 min (600k)</span>
+                <span class="interval-pill" onclick="setIntervalVal(660000)">11 min (660k Default)</span>
+                <span class="interval-pill" onclick="setIntervalVal(900000)">15 min (900k)</span>
+                <span class="interval-pill" onclick="setIntervalVal(1800000)">30 min (1.8M)</span>
+              </div>
+            </div>
+
+            <!-- maxmetarcount -->
+            <div class="field-row" id="field-maxmetarcount">
+              <div class="field-header">
+                <label for="input-maxmetarcount" class="field-label">
+                  Max METAR Station Cache Limit
+                  <span class="modified-tag">MODIFIED</span>
+                </label>
+                <span class="field-key">maxmetarcount</span>
+              </div>
+              <p class="field-desc">Upper bound on parsed weather observation stations kept in memory buffer.</p>
+              <div class="range-control-group">
+                <input type="range" id="slider-maxmetarcount" class="range-slider" min="50" max="3000" step="50" value="800">
+                <input type="number" id="input-maxmetarcount" name="maxmetarcount" class="form-input font-mono range-number-box" min="50" max="10000" required>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ================= CARD 3: Map & Navigation Defaults ================= -->
+        <section class="category-card" data-cat="map" id="card-map" style="grid-column: 1 / -1;">
+          <div class="card-header">
+            <div class="card-title-group">
+              <div class="card-icon-bubble">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"></polygon>
+                  <line x1="9" y1="3" x2="9" y2="18"></line>
+                  <line x1="15" y1="6" x2="15" y2="21"></line>
+                </svg>
+              </div>
+              <div>
+                <h3>Map, Tiles & Startup Navigation</h3>
+                <p>Default coordinates, OpenStreetMap raster layers, startup zoom, and search radius</p>
+              </div>
+            </div>
+            <span class="card-badge-count">6 settings</span>
+          </div>
+          <div class="card-body">
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 24px;">
+
+              <!-- Left Column: Coordinate Picker & Interactive Map -->
+              <div class="field-row" id="field-defaultposition">
+                <div class="field-header">
+                  <span class="field-label">
+                    Default Position Coordinates
+                    <span class="modified-tag">MODIFIED</span>
+                  </span>
+                  <span class="field-key">defaultposition: { lat, lon }</span>
+                </div>
+                <p class="field-desc">Default home centerpoint. Drag marker on preview map or type coordinates.</p>
+
+                <div class="coord-inputs">
+                  <div class="coord-field">
+                    <label for="input-pos-lat">Latitude (deg)</label>
+                    <input type="number" id="input-pos-lat" class="form-input font-mono" step="0.00001" min="-90" max="90" required>
+                  </div>
+                  <div class="coord-field">
+                    <label for="input-pos-lon">Longitude (deg)</label>
+                    <input type="number" id="input-pos-lon" class="form-input font-mono" step="0.00001" min="-180" max="180" required>
+                  </div>
+                </div>
+
+                <!-- Interactive Map Box -->
+                <div class="map-preview-box">
+                  <div id="positionMap"></div>
+                  <div class="map-bar">
+                    <span>Click or drag pin to re-center</span>
+                    <button type="button" class="btn btn-outline" style="padding: 2px 8px; font-size: 0.7rem;" id="btn-use-geolocation">
+                      📍 Use My GPS
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Quick presets -->
+                <div class="preset-pills">
+                  <span style="font-size: 0.72rem; color: var(--text-dim); display: flex; align-items: center;">Presets:</span>
+                  <button type="button" class="preset-pill" onclick="setPresetCoord(30.73659, -98.23643)">Austin/Burnet, TX (Default)</button>
+                  <button type="button" class="preset-pill" onclick="setPresetCoord(43.9844, -88.5569)">KOSH (Oshkosh EAA)</button>
+                  <button type="button" class="preset-pill" onclick="setPresetCoord(41.9742, -87.9073)">KORD (Chicago)</button>
+                  <button type="button" class="preset-pill" onclick="setPresetCoord(39.8561, -104.6737)">KDEN (Denver)</button>
+                  <button type="button" class="preset-pill" onclick="setPresetCoord(37.6213, -122.3790)">KSFO (San Francisco)</button>
+                </div>
+              </div>
+
+              <!-- Right Column: Map Behavior & Toggles -->
+              <div style="display: flex; flex-direction: column; gap: 16px;">
+                
+                <!-- startupzoom -->
+                <div class="field-row" id="field-startupzoom">
+                  <div class="field-header">
+                    <label for="input-startupzoom" class="field-label">
+                      Startup Zoom Level
+                      <span class="modified-tag">MODIFIED</span>
+                    </label>
+                    <span class="field-key">startupzoom (Level <span id="display-zoom-val">10</span>)</span>
+                  </div>
+                  <p class="field-desc">Default magnification level (1 = Global view, 18 = Runway detail).</p>
+                  <div class="range-control-group">
+                    <input type="range" id="slider-startupzoom" class="range-slider" min="3" max="18" step="1" value="10">
+                    <input type="number" id="input-startupzoom" name="startupzoom" class="form-input font-mono range-number-box" min="1" max="20" required>
+                  </div>
+                </div>
+
+                <!-- defaultsearchradius -->
+                <div class="field-row" id="field-defaultsearchradius">
+                  <div class="field-header">
+                    <label for="input-defaultsearchradius" class="field-label">
+                      Default Search Radius
+                      <span class="modified-tag">MODIFIED</span>
+                    </label>
+                    <span class="field-key">defaultsearchradius</span>
+                  </div>
+                  <p class="field-desc">Geographic query radius around active position for METAR stations and Navaids.</p>
+                  <div class="input-wrapper">
+                    <input type="number" id="input-defaultsearchradius" name="defaultsearchradius" class="form-input font-mono has-suffix" min="1" max="500" required>
+                    <span class="input-suffix" id="suffix-search-unit">sm</span>
+                  </div>
+                </div>
+
+                <!-- useOSMonlinemap -->
+                <div class="field-row" id="field-useOSMonlinemap">
+                  <div class="toggle-row">
+                    <div class="toggle-label-wrap">
+                      <span class="field-label">
+                        Use Online OpenStreetMap Tiles
+                        <span class="modified-tag">MODIFIED</span>
+                      </span>
+                      <span class="field-desc">Fetch standard OSM base cartography over internet. When disabled, uses offline vector cache.</span>
+                      <span class="field-key">useOSMonlinemap</span>
+                    </div>
+                    <label class="switch" for="toggle-useOSMonlinemap">
+                      <input type="checkbox" id="toggle-useOSMonlinemap" name="useOSMonlinemap">
+                      <span class="switch-slider"></span>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- overridelastposition -->
+                <div class="field-row" id="field-overridelastposition">
+                  <div class="toggle-row">
+                    <div class="toggle-label-wrap">
+                      <span class="field-label">
+                        Override Last Position on Boot
+                        <span class="modified-tag">MODIFIED</span>
+                      </span>
+                      <span class="field-desc">Force map to center on default coordinates instead of recalling the last known GPS session point.</span>
+                      <span class="field-key">overridelastposition</span>
+                    </div>
+                    <label class="switch" for="toggle-overridelastposition">
+                      <input type="checkbox" id="toggle-overridelastposition" name="overridelastposition">
+                      <span class="switch-slider"></span>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- showattribution -->
+                <div class="field-row" id="field-showattribution">
+                  <div class="toggle-row">
+                    <div class="toggle-label-wrap">
+                      <span class="field-label">
+                        Show Map & Data Attribution
+                        <span class="modified-tag">MODIFIED</span>
+                      </span>
+                      <span class="field-desc">Display legal OpenStreetMap, NOAA, and ADDS copyright watermarks in bottom corner.</span>
+                      <span class="field-key">showattribution</span>
+                    </div>
+                    <label class="switch" for="toggle-showattribution">
+                      <input type="checkbox" id="toggle-showattribution" name="showattribution">
+                      <span class="switch-slider"></span>
+                    </label>
+                  </div>
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ================= CARD 4: Units & Localization ================= -->
+        <section class="category-card" data-cat="units" id="card-units">
+          <div class="card-header">
+            <div class="card-title-group">
+              <div class="card-icon-bubble">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+              </div>
+              <div>
+                <h3>Units & Time Display</h3>
+                <p>Nautical / Statute / Metric units, timezones, and timestamps</p>
+              </div>
+            </div>
+            <span class="card-badge-count">3 settings</span>
+          </div>
+          <div class="card-body">
+
+            <!-- distanceunit -->
+            <div class="field-row" id="field-distanceunit">
+              <div class="field-header">
+                <span class="field-label">
+                  Distance Unit System
+                  <span class="modified-tag">MODIFIED</span>
+                </span>
+                <span class="field-key">distanceunit</span>
+              </div>
+              <p class="field-desc">Select measurement standard used for flight plan distances and radar ranges.</p>
+              
+              <div class="segmented-group">
+                <div class="segmented-option">
+                  <input type="radio" id="unit-sm" name="distanceunit" value="sm">
+                  <label for="unit-sm">
+                    <span class="code">sm</span>
+                    <span class="unit-name">Statute Miles</span>
+                  </label>
+                </div>
+                <div class="segmented-option">
+                  <input type="radio" id="unit-nm" name="distanceunit" value="nm">
+                  <label for="unit-nm">
+                    <span class="code">nm</span>
+                    <span class="unit-name">Nautical Miles</span>
+                  </label>
+                </div>
+                <div class="segmented-option">
+                  <input type="radio" id="unit-km" name="distanceunit" value="km">
+                  <label for="unit-km">
+                    <span class="code">km</span>
+                    <span class="unit-name">Kilometers</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- usemetricunits -->
+            <div class="field-row" id="field-usemetricunits">
+              <div class="toggle-row">
+                <div class="toggle-label-wrap">
+                  <span class="field-label">
+                    Use Metric Units
+                    <span class="modified-tag">MODIFIED</span>
+                  </span>
+                  <span class="field-desc">Display temperatures in Celsius (°C) and pressures in hectopascals (hPa) instead of inHg.</span>
+                  <span class="field-key">usemetricunits</span>
+                </div>
+                <label class="switch" for="toggle-usemetricunits">
+                  <input type="checkbox" id="toggle-usemetricunits" name="usemetricunits">
+                  <span class="switch-slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <!-- uselocaltime -->
+            <div class="field-row" id="field-uselocaltime">
+              <div class="toggle-row">
+                <div class="toggle-label-wrap">
+                  <span class="field-label">
+                    Use Device Local Time
+                    <span class="modified-tag">MODIFIED</span>
+                  </span>
+                  <span class="field-desc">Render observation timestamps in browser time zone instead of Coordinated Universal Time (UTC / Zulu).</span>
+                  <span class="field-key">uselocaltime</span>
+                </div>
+                <label class="switch" for="toggle-uselocaltime">
+                  <input type="checkbox" id="toggle-uselocaltime" name="uselocaltime">
+                  <span class="switch-slider"></span>
+                </label>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ================= CARD 5: Airports & Gesture Calibration ================= -->
+        <section class="category-card" data-cat="airports" id="card-airports">
+          <div class="card-header">
+            <div class="card-title-group">
+              <div class="card-icon-bubble">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"></path>
+                </svg>
+              </div>
+              <div>
+                <h3>Airports & Touch Gestures</h3>
+                <p>Regional filters, heliport inclusion, and touch screen hitboxes</p>
+              </div>
+            </div>
+            <span class="card-badge-count">5 settings</span>
+          </div>
+          <div class="card-body">
+
+            <!-- airportsFilter -->
+            <div class="field-row" id="field-airportsFilter">
+              <div class="field-header">
+                <label for="input-airportsFilter" class="field-label">
+                  Airports Country / Region Filter
+                  <span class="modified-tag">MODIFIED</span>
+                </label>
+                <span class="field-key">airportsFilter</span>
+              </div>
+              <p class="field-desc">Country code filter (e.g. <code>US</code>, <code>CA</code>, <code>ALL</code>) for airfield directory ingestion.</p>
+              <div class="input-wrapper">
+                <input type="text" id="input-airportsFilter" name="airportsFilter" class="form-input font-mono" placeholder="US" required>
+              </div>
+            </div>
+
+            <!-- getHeliports -->
+            <div class="field-row" id="field-getHeliports">
+              <div class="toggle-row">
+                <div class="toggle-label-wrap">
+                  <span class="field-label">
+                    Include Heliports
+                    <span class="modified-tag">MODIFIED</span>
+                  </span>
+                  <span class="field-desc">Ingest and display helicopter pads and hospital helipads.</span>
+                  <span class="field-key">getHeliports</span>
+                </div>
+                <label class="switch" for="toggle-getHeliports">
+                  <input type="checkbox" id="toggle-getHeliports" name="getHeliports">
+                  <span class="switch-slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <!-- getClosedAirports -->
+            <div class="field-row" id="field-getClosedAirports">
+              <div class="toggle-row">
+                <div class="toggle-label-wrap">
+                  <span class="field-label">
+                    Include Closed Airfields
+                    <span class="modified-tag">MODIFIED</span>
+                  </span>
+                  <span class="field-desc">Show decommissioned or permanently closed runway facilities.</span>
+                  <span class="field-key">getClosedAirports</span>
+                </div>
+                <label class="switch" for="toggle-getClosedAirports">
+                  <input type="checkbox" id="toggle-getClosedAirports" name="getClosedAirports">
+                  <span class="switch-slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <!-- smallScreenHitTolerance -->
+            <div class="field-row" id="field-smallScreenHitTolerance">
+              <div class="field-header">
+                <label for="input-smallScreenHitTolerance" class="field-label">
+                  Touch Hit Tolerance (pixels, touch screens only)
+                  <span class="modified-tag">MODIFIED</span>
+                </label>
+                <span class="field-key">smallScreenHitTolerance</span>
+              </div>
+              <p class="field-desc">Touch padding radius expansion for tapping icons on mobile/cockpit tablets.</p>
+              <div class="range-control-group">
+                <input type="range" id="slider-smallScreenHitTolerance" class="range-slider" min="10" max="100" step="5" value="40">
+                <input type="number" id="input-smallScreenHitTolerance" name="smallScreenHitTolerance" class="form-input font-mono range-number-box" min="5" max="150" required>
+              </div>
+            </div>
+
+            <!-- swipeThreshold -->
+            <div class="field-row" id="field-swipeThreshold">
+              <div class="field-header">
+                <label for="input-swipeThreshold" class="field-label">
+                  Swipe Gesture Threshold (pixels, touch screens only)
+                  <span class="modified-tag">MODIFIED</span>
+                </label>
+                <span class="field-key">swipeThreshold</span>
+              </div>
+              <p class="field-desc">Minimum finger travel distance required to trigger drawer or drawer switch gestures.</p>
+              <div class="range-control-group">
+                <input type="range" id="slider-swipeThreshold" class="range-slider" min="30" max="300" step="10" value="100">
+                <input type="number" id="input-swipeThreshold" name="swipeThreshold" class="form-input font-mono range-number-box" min="20" max="500" required>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+      </div>
+    </form>
+  </main>
+
+  <!-- Sticky Floating Action Bar -->
+  <aside class="floating-bar" aria-label="Action Controls">
+    <div class="floating-bar-info">
+      <div class="status-dot" id="bar-status-dot"></div>
+      <span id="bar-status-text" style="color: var(--text-muted); font-size: 0.8rem;">Ready</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <button type="button" class="btn btn-outline" id="btn-reload-server" title="Reload fresh settings from GET /api/appsettings">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="23 4 23 10 17 10"></polyline>
+          <polyline points="1 20 1 14 7 14"></polyline>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+        </svg>
+        Reload
+      </button>
+      <button type="button" class="btn btn-outline" id="btn-reset-form" title="Revert to last server or default values">
+        Reset
+      </button>
+      <button type="button" class="btn btn-primary" id="btn-save-settings">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+          <polyline points="17 21 17 13 7 13 7 21"></polyline>
+          <polyline points="7 3 7 8 15 8"></polyline>
+        </svg>
+        <span id="btn-save-text">Save Changes</span>
+        <kbd>Ctrl+S</kbd>
+      </button>
+    </div>
+  </aside>
+
+  <!-- JSON Schema & Import/Export Side Drawer -->
+  <div class="drawer-backdrop" id="drawer-backdrop"></div>
+  <aside class="json-drawer" id="json-drawer" aria-label="JSON Inspector Drawer">
+    <div class="drawer-header">
+      <h3>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="16 18 22 12 16 6"></polyline>
+          <polyline points="8 6 2 12 8 18"></polyline>
+        </svg>
+        Live JSON Payload
+      </h3>
+      <button type="button" class="btn btn-outline btn-icon" id="btn-close-drawer" aria-label="Close Drawer">
+        ✕
+      </button>
+    </div>
+    <div class="drawer-body">
+      <p style="font-size: 0.8rem; color: var(--text-muted);">
+        Real-time serialization matching server endpoint <code>POST /api/settings/edit</code>. You can copy, export, or paste custom configuration JSON.
+      </p>
+
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button type="button" class="btn btn-secondary" style="font-size: 0.75rem;" id="btn-copy-json">
+          📋 Copy JSON
+        </button>
+        <button type="button" class="btn btn-secondary" style="font-size: 0.75rem;" id="btn-download-json">
+          💾 Download config.json
+        </button>
+        <button type="button" class="btn btn-outline" style="font-size: 0.75rem;" id="btn-drawer-reload-server" title="Re-fetch /api/appsettings">
+          ↻ Re-fetch /api/appsettings
+        </button>
+      </div>
+
+      <div class="json-viewer-box" id="json-highlighted-box">
+        <!-- Rendered with syntax coloring -->
+      </div>
+
+      <div style="border-top: 1px solid var(--border-subtle); padding-top: 12px;">
+        <label for="textarea-import-json" style="font-size: 0.8rem; font-weight: 600; display: block; margin-bottom: 6px;">
+          Import / Paste Custom JSON
+        </label>
+        <textarea id="textarea-import-json" class="raw-textarea" placeholder="Paste your settings JSON here and click Apply..."></textarea>
+        <div style="margin-top: 8px; display: flex; justify-content: flex-end;">
+          <button type="button" class="btn btn-primary" style="font-size: 0.78rem;" id="btn-apply-imported-json">
+            Apply to Form
+          </button>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Main JavaScript Application Logic -->
+  <script>
+    /**
+     * Map Server / Client Settings Editor
+     * Dynamic configuration loaded from: GET /api/appsettings
+     * Persisted to: POST /api/settings/edit
+     */
+    const GET_SETTINGS_URL = "/api/appsettings";
+    const SAVE_SETTINGS_URL = "/api/settings/edit";
+
+    // Fallback baseline defaults (only used if /api/appsettings is unreachable)
+    const FALLBACK_CONFIG = {
+      "httpport": 8500,
+      "wsroute": "/api/chartserver-stream",
+      "debug": false,
+      "uselocaltime": true,
+      "distanceunit": "sm",
+      "maxmetarcount": 800,
+      "animatedwxurl": "https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0r-t.cgi",
+      "addscurrentwxurl": "https://aviationweather.gov/data/cache/###.cache.xml.gz",
+      "addscurrentwxurlcsv": "https://aviationweather.gov/data/cache/###.cache.csv.gz",
+      "wxupdateintervalmsec": 600000,
+      "showattribution": true,
+      "usemetricunits": false,
+      "smallScreenHitTolerance": 40,
+      "swipeThreshold": 100,
+      "getHeliports": false,
+      "getClosedAirports": false,
+      "airportsFilter": "US",
+      "startupzoom": 10,
+      "useOSMonlinemap": true,
+      "defaultsearchradius": 25,
+      "defaultposition": [-98.23643, 30.73659],
+      "overridelastposition": true
+    };
+
+    // State management
+    let rawServerConfig = null;           // Preserves untouched incoming JSON schema & custom keys
+    let isPositionArrayFormat = true;     // Tracks whether server used [lon, lat] array or {lon, lat} object
+    let initialLoadedState = null;        // Clean sanitized representation of loaded settings
+    let currentState = null;              // Currently edited form values
+    let isSaving = false;
+    let isOfflineOrMock = false;
+
+    // Leaflet map instance & marker
+    let leafletMap = null;
+    let mapMarker = null;
+
+    // DOM Elements
+    const form = document.getElementById("settings-form");
+    const saveBtn = document.getElementById("btn-save-settings");
+    const saveBtnText = document.getElementById("btn-save-text");
+    const resetBtn = document.getElementById("btn-reset-form");
+    const reloadBtn = document.getElementById("btn-reload-server");
+    const drawerReloadBtn = document.getElementById("btn-drawer-reload-server");
+    const syncPill = document.getElementById("pill-sync-status");
+    const syncStatusText = document.getElementById("text-sync-status");
+    const barStatusText = document.getElementById("bar-status-text");
+    const barStatusDot = document.getElementById("bar-status-dot");
+    const jsonDrawer = document.getElementById("json-drawer");
+    const drawerBackdrop = document.getElementById("drawer-backdrop");
+    const btnOpenDrawer = document.getElementById("btn-open-json-drawer");
+    const btnCloseDrawer = document.getElementById("btn-close-drawer");
+    const jsonHighlightedBox = document.getElementById("json-highlighted-box");
+    const toastContainer = document.getElementById("toast-container");
+    const themeToggleBtn = document.getElementById("btn-toggle-theme");
+    const searchInput = document.getElementById("input-search-settings");
+
+    // Coordinate inputs
+    const latInput = document.getElementById("input-pos-lat");
+    const lonInput = document.getElementById("input-pos-lon");
+
+    // Initialize application on DOM ready
+    document.addEventListener("DOMContentLoaded", async () => {
+      initTheme();
+      initSliders();
+      initFormEventListeners();
+      initSearch();
+      initKeyboardShortcuts();
+      await fetchServerSettings();
+      initMap();
+    });
+
+    /**
+     * Theme Initialization (Dark mode default with system or local storage recall)
+     */
+    function initTheme() {
+      const savedTheme = localStorage.getItem("mapserver_theme") || "dark";
+      document.documentElement.setAttribute("data-theme", savedTheme);
+      updateThemeIcon(savedTheme);
+
+      themeToggleBtn.addEventListener("click", () => {
+        const cur = document.documentElement.getAttribute("data-theme");
+        const next = cur === "dark" ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", next);
+        localStorage.setItem("mapserver_theme", next);
+        updateThemeIcon(next);
+        if (leafletMap) {
+          leafletMap.invalidateSize();
+        }
+      });
+    }
+
+    function updateThemeIcon(theme) {
+      if (theme === "light") {
+        themeToggleBtn.innerHTML = `
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+          </svg>`;
+      } else {
+        themeToggleBtn.innerHTML = `
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+          </svg>`;
+      }
+    }
+
+    /**
+     * Fetch settings dynamically from server route: GET /api/appsettings
+     */
+    async function fetchServerSettings(isManualReload = false) {
+      try {
+        setSyncStatus("Fetching /api/appsettings...", "info");
+        const res = await fetch(GET_SETTINGS_URL, {
+          headers: { "Accept": "application/json" },
+          cache: "no-store"
+        });
+
+        if (!res.ok) {
+          throw new Error(`Server returned HTTP ${res.status}`);
+        }
+
+        const data = await res.json();
+        rawServerConfig = JSON.parse(JSON.stringify(data));
+        initialLoadedState = sanitizeConfig(data);
+        currentState = JSON.parse(JSON.stringify(initialLoadedState));
+        isOfflineOrMock = false;
+
+        renderForm(currentState);
+        updateLiveJsonDisplay();
+        checkDirtyState();
+        setSyncStatus("Synced: /api/appsettings", "success");
+        showToast(isManualReload ? "Refreshed settings from /api/appsettings" : "Loaded settings from /api/appsettings", "success");
+      } catch (err) {
+        console.warn(`Could not fetch from ${GET_SETTINGS_URL}:`, err.message);
+        // Fallback to local storage or defaults
+        const cached = localStorage.getItem("mapserver_settings");
+        if (cached) {
+          try {
+            const parsedCached = JSON.parse(cached);
+            rawServerConfig = JSON.parse(JSON.stringify(parsedCached));
+            initialLoadedState = sanitizeConfig(parsedCached);
+            currentState = JSON.parse(JSON.stringify(initialLoadedState));
+            showToast("Loaded saved local settings (Server unreachable)", "info");
+          } catch(e) {
+            applyFallback();
+          }
+        } else {
+          applyFallback();
+        }
+        isOfflineOrMock = true;
+        renderForm(currentState);
+        updateLiveJsonDisplay();
+        checkDirtyState();
+        setSyncStatus("Local Standalone Mode", "warning");
+        if (isManualReload) {
+          showToast(`Fetch error: ${err.message}`, "error");
+        }
+      }
+    }
+
+    function applyFallback() {
+      rawServerConfig = JSON.parse(JSON.stringify(FALLBACK_CONFIG));
+      initialLoadedState = sanitizeConfig(FALLBACK_CONFIG);
+      currentState = JSON.parse(JSON.stringify(initialLoadedState));
+    }
+
+    /**
+     * Parse incoming server settings, detecting coordinate array or object format
+     */
+    function sanitizeConfig(input) {
+      const merged = Object.assign({}, FALLBACK_CONFIG, input || {});
+
+      // Inspect defaultposition format: array [lon, lat] or object {lon, lat}
+      if (Array.isArray(merged.defaultposition)) {
+        isPositionArrayFormat = true;
+        const lon = parseFloat(merged.defaultposition[0]);
+        const lat = parseFloat(merged.defaultposition[1]);
+        merged.defaultposition = {
+          lon: isNaN(lon) ? -98.23643 : lon,
+          lat: isNaN(lat) ? 30.73659 : lat
+        };
+      } else if (merged.defaultposition && typeof merged.defaultposition === "object") {
+        isPositionArrayFormat = false;
+        const lon = parseFloat(merged.defaultposition.lon ?? merged.defaultposition.lng);
+        const lat = parseFloat(merged.defaultposition.lat);
+        merged.defaultposition = {
+          lon: isNaN(lon) ? -98.23643 : lon,
+          lat: isNaN(lat) ? 30.73659 : lat
+        };
+      } else {
+        isPositionArrayFormat = true;
+        merged.defaultposition = { lon: -98.23643, lat: 30.73659 };
+      }
+
+      merged.httpport = parseInt(merged.httpport, 10) || 8500;
+      merged.maxmetarcount = parseInt(merged.maxmetarcount, 10) || 800;
+      merged.wxupdateintervalmsec = parseInt(merged.wxupdateintervalmsec, 10) || 600000;
+      merged.smallScreenHitTolerance = parseInt(merged.smallScreenHitTolerance, 10) || 40;
+      merged.swipeThreshold = parseInt(merged.swipeThreshold, 10) || 100;
+      merged.startupzoom = parseInt(merged.startupzoom, 10) || 10;
+      merged.defaultsearchradius = parseInt(merged.defaultsearchradius, 10) || 25;
+      merged.debug = Boolean(merged.debug);
+      merged.uselocaltime = Boolean(merged.uselocaltime);
+      merged.showattribution = Boolean(merged.showattribution);
+      merged.usemetricunits = Boolean(merged.usemetricunits);
+      merged.getHeliports = Boolean(merged.getHeliports);
+      merged.getClosedAirports = Boolean(merged.getClosedAirports);
+      merged.useOSMonlinemap = Boolean(merged.useOSMonlinemap);
+      merged.overridelastposition = Boolean(merged.overridelastposition);
+      return merged;
+    }
+
+    /**
+     * Serialize currentState matching incoming server schema
+     */
+    function serializePayload(state) {
+      if (!state) return {};
+      const payload = Object.assign({}, rawServerConfig || {}, state);
+      if (isPositionArrayFormat) {
+        payload.defaultposition = [
+          parseFloat(state.defaultposition.lon.toFixed(5)),
+          parseFloat(state.defaultposition.lat.toFixed(5))
+        ];
+      } else {
+        payload.defaultposition = {
+          lon: parseFloat(state.defaultposition.lon.toFixed(5)),
+          lat: parseFloat(state.defaultposition.lat.toFixed(5))
+        };
+      }
+      return payload;
+    }
+
+    /**
+     * Render the form values from state
+     */
+    function renderForm(config) {
+      if (!config) return;
+
+      // 1. Text & Numbers
+      document.getElementById("input-httpport").value = config.httpport;
+      document.getElementById("input-wsroute").value = config.wsroute;
+      document.getElementById("input-animatedwxurl").value = config.animatedwxurl;
+      document.getElementById("input-addscurrentwxurl").value = config.addscurrentwxurl;
+      document.getElementById("input-addscurrentwxurlcsv").value = config.addscurrentwxurlcsv;
+      document.getElementById("input-wxupdateintervalmsec").value = config.wxupdateintervalmsec;
+      document.getElementById("input-airportsFilter").value = config.airportsFilter;
+      document.getElementById("input-defaultsearchradius").value = config.defaultsearchradius;
+
+      // 2. Sliders + numbers
+      document.getElementById("input-maxmetarcount").value = config.maxmetarcount;
+      document.getElementById("slider-maxmetarcount").value = config.maxmetarcount;
+
+      document.getElementById("input-startupzoom").value = config.startupzoom;
+      document.getElementById("slider-startupzoom").value = config.startupzoom;
+      document.getElementById("display-zoom-val").textContent = config.startupzoom;
+
+      document.getElementById("input-smallScreenHitTolerance").value = config.smallScreenHitTolerance;
+      document.getElementById("slider-smallScreenHitTolerance").value = config.smallScreenHitTolerance;
+
+      document.getElementById("input-swipeThreshold").value = config.swipeThreshold;
+      document.getElementById("slider-swipeThreshold").value = config.swipeThreshold;
+
+      // 3. Booleans (switches)
+      document.getElementById("toggle-debug").checked = config.debug;
+      document.getElementById("toggle-uselocaltime").checked = config.uselocaltime;
+      document.getElementById("toggle-showattribution").checked = config.showattribution;
+      document.getElementById("toggle-usemetricunits").checked = config.usemetricunits;
+      document.getElementById("toggle-getHeliports").checked = config.getHeliports;
+      document.getElementById("toggle-getClosedAirports").checked = config.getClosedAirports;
+      document.getElementById("toggle-useOSMonlinemap").checked = config.useOSMonlinemap;
+      document.getElementById("toggle-overridelastposition").checked = config.overridelastposition;
+
+      // 4. Distance Unit Radio Pill
+      const unitRadio = document.querySelector(`input[name="distanceunit"][value="${config.distanceunit}"]`);
+      if (unitRadio) unitRadio.checked = true;
+      document.getElementById("suffix-search-unit").textContent = config.distanceunit;
+
+      // 5. Coordinates
+      latInput.value = config.defaultposition.lat;
+      lonInput.value = config.defaultposition.lon;
+
+      // Quick header stats update
+      document.getElementById("stat-port").textContent = config.httpport;
+      document.getElementById("stat-ws").textContent = config.wsroute;
+      document.getElementById("stat-units").textContent = config.distanceunit.toUpperCase();
+      updateHumanInterval(config.wxupdateintervalmsec);
+
+      // Radar test link
+      const radarLink = document.getElementById("link-test-radar");
+      radarLink.href = config.animatedwxurl;
+
+      // Map center update
+      updateMapMarker(config.defaultposition.lat, config.defaultposition.lon, config.startupzoom);
+    }
+
+    /**
+     * Read the current form elements back into a state object
+     */
+    function readFormState() {
+      const selectedUnit = document.querySelector('input[name="distanceunit"]:checked');
+      return {
+        httpport: parseInt(document.getElementById("input-httpport").value, 10) || 8500,
+        wsroute: document.getElementById("input-wsroute").value.trim(),
+        debug: document.getElementById("toggle-debug").checked,
+        uselocaltime: document.getElementById("toggle-uselocaltime").checked,
+        distanceunit: selectedUnit ? selectedUnit.value : "sm",
+        maxmetarcount: parseInt(document.getElementById("input-maxmetarcount").value, 10) || 800,
+        animatedwxurl: document.getElementById("input-animatedwxurl").value.trim(),
+        addscurrentwxurl: document.getElementById("input-addscurrentwxurl").value.trim(),
+        addscurrentwxurlcsv: document.getElementById("input-addscurrentwxurlcsv").value.trim(),
+        wxupdateintervalmsec: parseInt(document.getElementById("input-wxupdateintervalmsec").value, 10) || 600000,
+        showattribution: document.getElementById("toggle-showattribution").checked,
+        usemetricunits: document.getElementById("toggle-usemetricunits").checked,
+        smallScreenHitTolerance: parseInt(document.getElementById("input-smallScreenHitTolerance").value, 10) || 40,
+        swipeThreshold: parseInt(document.getElementById("input-swipeThreshold").value, 10) || 100,
+        getHeliports: document.getElementById("toggle-getHeliports").checked,
+        getClosedAirports: document.getElementById("toggle-getClosedAirports").checked,
+        airportsFilter: document.getElementById("input-airportsFilter").value.trim(),
+        startupzoom: parseInt(document.getElementById("input-startupzoom").value, 10) || 10,
+        useOSMonlinemap: document.getElementById("toggle-useOSMonlinemap").checked,
+        defaultsearchradius: parseInt(document.getElementById("input-defaultsearchradius").value, 10) || 25,
+        defaultposition: {
+          lon: parseFloat(lonInput.value) || 0,
+          lat: parseFloat(latInput.value) || 0
+        },
+        overridelastposition: document.getElementById("toggle-overridelastposition").checked
+      };
+    }
+
+    /**
+     * Form & Slider Event Binding
+     */
+    function initFormEventListeners() {
+      form.addEventListener("input", (e) => {
+        currentState = readFormState();
+        updateLiveJsonDisplay();
+        checkDirtyState();
+
+        // Update dynamic stats
+        document.getElementById("stat-port").textContent = currentState.httpport;
+        document.getElementById("stat-ws").textContent = currentState.wsroute;
+        updateHumanInterval(currentState.wxupdateintervalmsec);
+      });
+
+      form.addEventListener("change", (e) => {
+        currentState = readFormState();
+        updateLiveJsonDisplay();
+        checkDirtyState();
+
+        if (e.target.name === "distanceunit") {
+          document.getElementById("suffix-search-unit").textContent = e.target.value;
+          document.getElementById("stat-units").textContent = e.target.value.toUpperCase();
+        }
+
+        if (e.target.id === "input-pos-lat" || e.target.id === "input-pos-lon") {
+          updateMapMarker(currentState.defaultposition.lat, currentState.defaultposition.lon);
+        }
+      });
+
+      // Save CTA
+      saveBtn.addEventListener("click", () => saveSettingsToServer());
+
+      // Reload Button (Float bar)
+      if (reloadBtn) {
+        reloadBtn.addEventListener("click", () => {
+          fetchServerSettings(true);
+        });
+      }
+
+      // Reload Button (Drawer)
+      if (drawerReloadBtn) {
+        drawerReloadBtn.addEventListener("click", () => {
+          fetchServerSettings(true);
+        });
+      }
+
+      // Reset Button
+      resetBtn.addEventListener("click", () => {
+        if (confirm("Revert all fields back to the last loaded configuration?")) {
+          currentState = JSON.parse(JSON.stringify(initialLoadedState));
+          renderForm(currentState);
+          updateLiveJsonDisplay();
+          checkDirtyState();
+          showToast("Form reset to previous values", "info");
+        }
+      });
+
+      // Geolocation button
+      document.getElementById("btn-use-geolocation").addEventListener("click", () => {
+        if (!navigator.geolocation) {
+          showToast("Geolocation is not supported by your browser", "error");
+          return;
+        }
+        showToast("Detecting current coordinates...", "info");
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const lat = parseFloat(pos.coords.latitude.toFixed(5));
+            const lon = parseFloat(pos.coords.longitude.toFixed(5));
+            latInput.value = lat;
+            lonInput.value = lon;
+            currentState.defaultposition = { lat, lon };
+            updateMapMarker(lat, lon);
+            updateLiveJsonDisplay();
+            checkDirtyState();
+            showToast(`Position set to: ${lat}, ${lon}`, "success");
+          },
+          (err) => {
+            showToast(`Could not obtain GPS fix: ${err.message}`, "error");
+          },
+          { enableHighAccuracy: true, timeout: 8000 }
+        );
+      });
+
+      // Drawer Open / Close
+      btnOpenDrawer.addEventListener("click", () => openJsonDrawer());
+      btnCloseDrawer.addEventListener("click", () => closeJsonDrawer());
+      drawerBackdrop.addEventListener("click", () => closeJsonDrawer());
+
+      // Drawer Actions
+      document.getElementById("btn-copy-json").addEventListener("click", () => {
+        const payload = serializePayload(currentState);
+        const jsonStr = JSON.stringify(payload, null, 2);
+        navigator.clipboard.writeText(jsonStr).then(() => {
+          showToast("Configuration JSON copied to clipboard!", "success");
+        }).catch(() => {
+          showToast("Clipboard access denied", "error");
+        });
+      });
+
+      document.getElementById("btn-download-json").addEventListener("click", () => {
+        const payload = serializePayload(currentState);
+        const jsonStr = JSON.stringify(payload, null, 2);
+        const blob = new Blob([jsonStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "appsettings.json";
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast("Downloaded appsettings.json", "success");
+      });
+
+      document.getElementById("btn-apply-imported-json").addEventListener("click", () => {
+        const raw = document.getElementById("textarea-import-json").value.trim();
+        if (!raw) {
+          showToast("Please paste JSON into the box first", "error");
+          return;
+        }
+        try {
+          const parsed = JSON.parse(raw);
+          rawServerConfig = JSON.parse(JSON.stringify(parsed));
+          currentState = sanitizeConfig(parsed);
+          initialLoadedState = JSON.parse(JSON.stringify(currentState));
+          renderForm(currentState);
+          updateLiveJsonDisplay();
+          checkDirtyState();
+          closeJsonDrawer();
+          showToast("Imported settings applied successfully!", "success");
+        } catch (err) {
+          showToast(`Invalid JSON syntax: ${err.message}`, "error");
+        }
+      });
+    }
+
+    /**
+     * Sliders two-way synchronization
+     */
+    function initSliders() {
+      syncSliderAndNumber("slider-maxmetarcount", "input-maxmetarcount");
+      syncSliderAndNumber("slider-startupzoom", "input-startupzoom", (val) => {
+        document.getElementById("display-zoom-val").textContent = val;
+        if (leafletMap) leafletMap.setZoom(parseInt(val, 10));
+      });
+      syncSliderAndNumber("slider-smallScreenHitTolerance", "input-smallScreenHitTolerance");
+      syncSliderAndNumber("slider-swipeThreshold", "input-swipeThreshold");
+    }
+
+    function syncSliderAndNumber(sliderId, numberId, onUpdate) {
+      const slider = document.getElementById(sliderId);
+      const number = document.getElementById(numberId);
+
+      slider.addEventListener("input", () => {
+        number.value = slider.value;
+        currentState = readFormState();
+        updateLiveJsonDisplay();
+        checkDirtyState();
+        if (onUpdate) onUpdate(slider.value);
+      });
+
+      number.addEventListener("input", () => {
+        slider.value = number.value;
+        currentState = readFormState();
+        updateLiveJsonDisplay();
+        checkDirtyState();
+        if (onUpdate) onUpdate(number.value);
+      });
+    }
+
+    /**
+     * Map Integration (Leaflet with graceful fallback)
+     */
+    function initMap() {
+      const mapContainer = document.getElementById("positionMap");
+      if (!window.L) {
+        mapContainer.innerHTML = `
+          <div style="height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#94a3b8; font-size:0.85rem; padding:20px; text-align:center;">
+            <span>📍 Map preview placeholder (Offline Mode)</span>
+            <span style="font-size:0.75rem; color:#64748b; margin-top:4px;">Coordinates can be set directly via Latitude & Longitude inputs below.</span>
+          </div>`;
+        return;
+      }
+
+      const initialLat = currentState ? currentState.defaultposition.lat : 30.73659;
+      const initialLon = currentState ? currentState.defaultposition.lon : -98.23643;
+      const initialZoom = currentState ? (currentState.startupzoom || 10) : 10;
+
+      try {
+        leafletMap = L.map("positionMap", {
+          zoomControl: true,
+          attributionControl: false
+        }).setView([initialLat, initialLon], initialZoom);
+
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          maxZoom: 19
+        }).addTo(leafletMap);
+
+        // Custom styled marker
+        mapMarker = L.marker([initialLat, initialLon], {
+          draggable: true
+        }).addTo(leafletMap);
+
+        // Marker drag handler
+        mapMarker.on("dragend", () => {
+          const pos = mapMarker.getLatLng();
+          const lat = parseFloat(pos.lat.toFixed(5));
+          const lon = parseFloat(pos.lng.toFixed(5));
+          latInput.value = lat;
+          lonInput.value = lon;
+          currentState.defaultposition = { lat, lon };
+          updateLiveJsonDisplay();
+          checkDirtyState();
+        });
+
+        // Map click handler
+        leafletMap.on("click", (e) => {
+          const lat = parseFloat(e.latlng.lat.toFixed(5));
+          const lon = parseFloat(e.latlng.lng.toFixed(5));
+          mapMarker.setLatLng([lat, lon]);
+          latInput.value = lat;
+          lonInput.value = lon;
+          currentState.defaultposition = { lat, lon };
+          updateLiveJsonDisplay();
+          checkDirtyState();
+        });
+
+        // Map zoom handler
+        leafletMap.on("zoomend", () => {
+          const z = leafletMap.getZoom();
+          document.getElementById("slider-startupzoom").value = z;
+          document.getElementById("input-startupzoom").value = z;
+          document.getElementById("display-zoom-val").textContent = z;
+          currentState.startupzoom = z;
+          updateLiveJsonDisplay();
+          checkDirtyState();
+        });
+      } catch (err) {
+        console.warn("Leaflet map initialization warning:", err);
+      }
+    }
+
+    function updateMapMarker(lat, lon, zoom) {
+      if (!leafletMap || !mapMarker) return;
+      try {
+        const numLat = parseFloat(lat);
+        const numLon = parseFloat(lon);
+        if (!isNaN(numLat) && !isNaN(numLon)) {
+          mapMarker.setLatLng([numLat, numLon]);
+          if (zoom !== undefined) {
+            leafletMap.setView([numLat, numLon], zoom);
+          } else {
+            leafletMap.panTo([numLat, numLon]);
+          }
+        }
+      } catch(e) {}
+    }
+
+    // Helper for quick presets
+    window.setPresetCoord = function(lat, lon) {
+      latInput.value = lat;
+      lonInput.value = lon;
+      currentState.defaultposition = { lat, lon };
+      updateMapMarker(lat, lon);
+      updateLiveJsonDisplay();
+      checkDirtyState();
+      showToast(`Selected preset coordinate: ${lat}, ${lon}`, "info");
+    };
+
+    window.setIntervalVal = function(ms) {
+      document.getElementById("input-wxupdateintervalmsec").value = ms;
+      currentState.wxupdateintervalmsec = ms;
+      updateHumanInterval(ms);
+      updateLiveJsonDisplay();
+      checkDirtyState();
+    };
+
+    function updateHumanInterval(ms) {
+      const minutes = (ms / 60000).toFixed(1);
+      const text = `${minutes} min (${Number(ms).toLocaleString()} ms)`;
+      document.getElementById("badge-human-interval").textContent = text;
+      document.getElementById("stat-wx-interval").textContent = `${minutes} min`;
+    }
+
+    /**
+     * Dirty state checker (compares currentState with initialLoadedState)
+     */
+    function checkDirtyState() {
+      if (!currentState || !initialLoadedState) return;
+      let isDirty = false;
+      const keys = Object.keys(FALLBACK_CONFIG);
+
+      keys.forEach((key) => {
+        const fieldRow = document.getElementById(`field-${key}`);
+        let modified = false;
+
+        if (key === "defaultposition") {
+          const curPos = currentState.defaultposition;
+          const initPos = initialLoadedState.defaultposition;
+          modified = !initPos || (curPos.lat !== initPos.lat || curPos.lon !== initPos.lon);
+        } else {
+          modified = currentState[key] !== initialLoadedState[key];
+        }
+
+        if (fieldRow) {
+          if (modified) {
+            fieldRow.classList.add("is-dirty");
+            isDirty = true;
+          } else {
+            fieldRow.classList.remove("is-dirty");
+          }
+        }
+      });
+
+      if (isDirty) {
+        syncPill.className = "status-badge unsaved";
+        syncStatusText.textContent = "Unsaved Changes";
+        barStatusDot.style.background = "var(--accent-amber)";
+        barStatusDot.style.boxShadow = "0 0 8px var(--accent-amber)";
+        barStatusText.textContent = "Unsaved modifications";
+        saveBtn.classList.add("btn-primary");
+      } else {
+        syncPill.className = "status-badge";
+        syncStatusText.textContent = isOfflineOrMock ? "Local Mode" : "Synced: /api/appsettings";
+        barStatusDot.style.background = "var(--accent-emerald)";
+        barStatusDot.style.boxShadow = "0 0 8px var(--accent-emerald)";
+        barStatusText.textContent = "All changes synchronized";
+      }
+    }
+
+    /**
+     * Save settings to server route: POST /api/settings/edit
+     */
+    async function saveSettingsToServer() {
+      if (isSaving) return;
+      isSaving = true;
+
+      // Update UI state
+      saveBtnText.innerHTML = `<div class="spinner"></div> Saving...`;
+      saveBtn.disabled = true;
+
+      const payload = serializePayload(currentState);
+
+      try {
+        const res = await fetch(SAVE_SETTINGS_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (res.ok) {
+          const contentType = res.headers.get("content-type");
+          if (contentType && contentType.includes("application/json")) {
+            await res.json().catch(() => ({}));
+          }
+          initialLoadedState = JSON.parse(JSON.stringify(currentState));
+          rawServerConfig = JSON.parse(JSON.stringify(payload));
+          localStorage.setItem("mapserver_settings", JSON.stringify(payload));
+          checkDirtyState();
+          showToast("Settings successfully saved to /api/settings/edit!", "success");
+        } else {
+          throw new Error(`Server returned status HTTP ${res.status}`);
+        }
+      } catch (err) {
+        console.warn("POST to /api/settings/edit failed:", err);
+        // Persist locally in standalone mode
+        localStorage.setItem("mapserver_settings", JSON.stringify(payload));
+        initialLoadedState = JSON.parse(JSON.stringify(currentState));
+        checkDirtyState();
+        showToast(`Saved locally (${err.message}). Ready for server sync.`, "info");
+      } finally {
+        isSaving = false;
+        saveBtnText.innerHTML = `Save Changes`;
+        saveBtn.disabled = false;
+      }
+    }
+
+    /**
+     * Search and Filter settings
+     */
+    function initSearch() {
+      searchInput.addEventListener("input", (e) => {
+        const q = e.target.value.toLowerCase().trim();
+        const rows = document.querySelectorAll(".field-row");
+        const cards = document.querySelectorAll(".category-card");
+
+        rows.forEach((row) => {
+          const text = row.textContent.toLowerCase();
+          if (!q || text.includes(q)) {
+            row.classList.remove("hidden-by-search");
+          } else {
+            row.classList.add("hidden-by-search");
+          }
+        });
+
+        // Hide cards if all children are hidden
+        cards.forEach((card) => {
+          const visibleRows = card.querySelectorAll(".field-row:not(.hidden-by-search)");
+          if (visibleRows.length === 0 && q) {
+            card.style.display = "none";
+          } else {
+            card.style.display = "";
+          }
+        });
+      });
+    }
+
+    /**
+     * Keyboard shortcuts: Ctrl+S to save, Ctrl+K to search
+     */
+    function initKeyboardShortcuts() {
+      window.addEventListener("keydown", (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+          e.preventDefault();
+          saveSettingsToServer();
+        } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+          e.preventDefault();
+          searchInput.focus();
+        } else if (e.key === "Escape") {
+          closeJsonDrawer();
+        }
+      });
+
+      window.addEventListener("beforeunload", (e) => {
+        if (!currentState || !initialLoadedState) return;
+        const isDirty = JSON.stringify(currentState) !== JSON.stringify(initialLoadedState);
+        if (isDirty) {
+          e.preventDefault();
+          e.returnValue = "You have unsaved changes that will be lost.";
+        }
+      });
+    }
+
+    /**
+     * Live JSON Drawer & Syntax Highlighter
+     */
+    function openJsonDrawer() {
+      updateLiveJsonDisplay();
+      const payload = serializePayload(currentState);
+      document.getElementById("textarea-import-json").value = JSON.stringify(payload, null, 2);
+      jsonDrawer.classList.add("open");
+      drawerBackdrop.classList.add("open");
+    }
+
+    function closeJsonDrawer() {
+      jsonDrawer.classList.remove("open");
+      drawerBackdrop.classList.remove("open");
+    }
+
+    function updateLiveJsonDisplay() {
+      const payload = serializePayload(currentState);
+      const jsonStr = JSON.stringify(payload, null, 2);
+      jsonHighlightedBox.innerHTML = syntaxHighlightJson(jsonStr);
+    }
+
+    function syntaxHighlightJson(json) {
+      json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      return json.replace(/("(\u[a-zA-Z0-9]{4}|\[^u]|[^\"])*"(\s*:)?|(true|false|null)|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+        let cls = 'json-number';
+        if (/^"/.test(match)) {
+          if (/:$/.test(match)) {
+            cls = 'json-key';
+          } else {
+            cls = 'json-string';
+          }
+        } else if (/true|false/.test(match)) {
+          cls = 'json-boolean';
+        } else if (/null/.test(match)) {
+          cls = 'json-dim';
+        }
+        return '<span class="' + cls + '">' + match + '</span>';
+      });
+    }
+
+    /**
+     * Status and Toast Notification Helpers
+     */
+    function setSyncStatus(text, type) {
+      syncStatusText.textContent = text;
+      if (type === "success") {
+        syncPill.className = "status-badge";
+      } else if (type === "warning") {
+        syncPill.className = "status-badge unsaved";
+      }
+    }
+
+    function showToast(message, type = "info") {
+      const toast = document.createElement("div");
+      toast.className = `toast ${type}`;
+      
+      let icon = "ℹ️";
+      if (type === "success") icon = "✓";
+      if (type === "error") icon = "⚠";
+
+      toast.innerHTML = `
+        <span style="font-weight:700; color: ${type === 'success' ? 'var(--accent-emerald)' : type === 'error' ? 'var(--accent-rose)' : 'var(--accent-cyan)'};">${icon}</span>
+        <span>${message}</span>
+      `;
+      toastContainer.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.opacity = "0";
+        toast.style.transform = "translateX(50px)";
+        toast.style.transition = "all 0.3s ease";
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+  </script>
+</body>
+</html>
