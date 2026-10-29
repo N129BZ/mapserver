@@ -342,21 +342,24 @@ app.get("/tiles/tilesets", (req, res) => {
     res.json(result);
 });
 
-app.get("/tiles/*", (req, res) => {
+app.get(["/tiles/*", "/tilesets/tiles/*"], (req, res) => {
     const path = req.path;
     const parts = path.split("/");
 
-    if (parts.length < 6) {
+    const isTilesetsPrefix = parts[1] === "tilesets" && parts[2] === "tiles";
+    const offset = isTilesetsPrefix ? 1 : 0;
+
+    if (parts.length < 6 + offset) {
         res.send("Invalid tile URL").end();
         return;
     }
 
-    const dbname = parts[2];
-    const z = parseInt(parts[3]);
-    const x = parseInt(parts[4]);
-    const yRaw = parts[5];
+    const dbname = parts[2 + offset];
+    const z = parseInt(parts[3 + offset]);
+    const x = parseInt(parts[4 + offset]);
+    const yRaw = parts[5 + offset];
     const y = parseInt(yRaw.split(".")[0]);
-    const db = databases.get(dbname);
+    const db = databases.get(dbname) || databases.get(dbname.toLowerCase());
 
     if (!db) {
         res.send("Database not found").end();
