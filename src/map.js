@@ -392,14 +392,6 @@ document.addEventListener('DOMContentLoaded', async function () {
                 for (const report of reportArray) {
                     let stationInfo = "";
                     if (report.raw_text) {
-                        // const message = {
-                        //     Type: arrayKey,
-                        //     Location: report.station_id ? report.station_id : "",
-                        //     Time: report.observation_time ? report.observation_time : "",
-                        //     Data: report.raw_text,
-                        //     LocaltimeReceived: new Date().toLocaleTimeString()
-                        // };
-
                         if (arrayKey) {
                             switch (arrayKey) {
                                 case "METAR":
@@ -470,13 +462,11 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     let osmTileLayer = new TileLayer({
         source: new OSM({
-            onTileLoadError: function (event) { } // Suppress annoying console 404 errors
+            onTileLoadError: function (event) { } 
         }),
-        name: "osm",
         visible: true,
         type: "none",
         zIndex: 0,
-        canvasWillReadFrequently: true
     });
     map.addLayer(osmTileLayer);
 
@@ -671,13 +661,6 @@ document.addEventListener('DOMContentLoaded', async function () {
                     let zindex = 4;
                     let displayInSwitcher = true;
 
-                    // if (title === "OSM Offline") {
-                    //     layertype = "";
-                    //     visible = true;
-                    //     zindex = 0;
-                    //     displayInSwitcher = false;
-                    // }
-                    
                     let dburl = URL_GET_TILE.replace("{dbname}", dbname);
                     var layer = new TileLayer({
                         source: new XYZ({
@@ -697,12 +680,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                         canvasWillReadFrequently: true,
                         displayInLayerSwitcher: displayInSwitcher
                     });
-                    if (dbname === "osm" || dbname === "osm.mbtiles") {
-                        map.getLayers().insertAt(0, layer);
-                    }
-                    else {
-                        map.addLayer(layer);
-                    }
+                    map.addLayer(layer);
                 }
             }
         }
@@ -1190,7 +1168,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         const winspd = metar.wind_speed_kt ?? "0";
         const wingst = metar.wind_gust_kt ?? "0";
         const altim = isValidNumber(metar.altim_in_hg) ? getAltimeterSetting(metar.altim_in_hg) + " hg" : "N/A";
-        const vis = isValidNumber(metar.visibility_statute_mi) ? getDistanceUnits(metar.visibility_statute_mi) : "N/A";
+        const vis = metar.visibility_statute_mi ? `${metar.visibility_statute_mi} SM` : "N/A";
         const skycondition = metar.sky_condition;
         const skyconditions = decodeSkyCondition(skycondition ?? "") ?? "";
         const btncolors = getCategoryColors(cat);
@@ -1202,7 +1180,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         const skyHeader = `<tr><td class="skyheader colspan="2" style="display:block;width:99%;text-align:center;border:1px solid #000000;">`;
 
         const airport = await getAirportObject(ident);
-        const stationName = airport.name !== undefined ? `${String(airport.name).split("/")[0]}<br>${ident}` : ident;
+        const stationName = airport.name !== undefined ? `${String(airport.name).split("/")[0]}<br>${ident} - ${cat}` :`${ident} - ${cat}`;
 
         let detailhtml = "";
         let time = (function () {
@@ -1219,7 +1197,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         if (ident != "undefined") {
             detailhtml =
                 `<div style="display:block;">
-                <span class="airportheader" style="background-color:${bgcolor}; color:${fgcolor};">${stationName}</span>
+                <span class="popup-title-area" style="background-color:${bgcolor}; color:${fgcolor};">${stationName}</span>
                 <div class="popup-content">
                     <div class="table-scroll-container">
                         <table class="popup-body-table" id="metartable">
@@ -1283,10 +1261,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         const category = feature.get("category");
         const ident = taf.station_id;
         const rawData = taf.raw_text;
-
-
         const forecast = taf.forecast;
-
         const airport = await getAirportObject(ident);
         const stationNames = String(airport.name).split("/");
         const stationName = stationNames[0] ? `${stationNames[0]}<br>${ident}` : ident;
