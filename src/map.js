@@ -651,18 +651,18 @@ document.addEventListener('DOMContentLoaded', async function () {
                 for (const [dbname, metadata] of entries) {
 
                     let zOrder = 10;
-                    if (dbname === "terminal") {
+                    if (dbname.toLowerCase() === "terminal") {
                         zOrder = 12;
                     }
+                    const fixdbname = dbname.replace("_", " ")
+                    const title = metadata.description ? metadata.description.replace("_", " ") : fixdbname;
+                    const layertype = "overlay";
+                    const visible = false;
+                    const zindex = 4;
+                    const displayInSwitcher = true;
 
-                    let title = metadata.description; // ? metadata.description.replace(" Chart", "") : dbname;
-                    let layertype = "overlay";
-                    let visible = false;
-                    let zindex = 4;
-                    let displayInSwitcher = true;
-
-                    let dburl = URL_GET_TILE.replace("{dbname}", dbname);
-                    var layer = new TileLayer({
+                    const dburl = URL_GET_TILE.replace("{dbname}", dbname);
+                    const layer = new TileLayer({
                         source: new XYZ({
                             onTileLoadError: function (event) { }, // Suppress annoying console 404 errors
                             url: dburl,
@@ -671,7 +671,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                             attributions: metadata && metadata.attribution ? metadata.attribution : undefined,
                             attributionsCollapsible: false,
                         }),
-                        name: dbname,
+                        name: fixdbname,
                         title: title,
                         type: layertype,
                         visible: visible,
