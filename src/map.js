@@ -365,7 +365,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             return;
         }
         const URL_WEBSOCKET = `${URL_SERVER}${appsettings.wsroute}`;
-        console.log(URL_WEBSOCKET);
+        //console.log(URL_WEBSOCKET);
         socket = new WebSocket(URL_WEBSOCKET);
         socket.onmessage = async (evt) => {
             const message = JSON.parse(evt.data);
@@ -3659,7 +3659,6 @@ document.addEventListener('DOMContentLoaded', async function () {
         }
     }
 
-    console.log("Line 3216: DOMContentLoaded"); //, restoring map state.");
     await loadTileDatabases();
     await loadUserData();
 });
