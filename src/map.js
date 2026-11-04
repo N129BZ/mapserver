@@ -2037,7 +2037,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                 data: pirep,
                 datatype: "PIREP",
                 geometry: new Point(fromLonLat([pirep.longitude, pirep.latitude])),
-                zIndex: 9999
+                zIndex: 4800
             });
             pirepFeature.setId(id);
             pirepFeature.setStyle(pirepIconStyle);

@@ -110,6 +110,19 @@ html, body {
     font-size: medium;
     z-index: 5000;
 }
+.layer-switcher button {
+  /* Replace the default icon with your custom image or SVG */
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>') !important;
+  
+  /* Standard background properties for clean scaling */
+  background-size: 42px 42px !important; /* Adjust sizes as needed */
+  background-repeat: no-repeat !important;
+  background-position: center center !important;
+}
+.layer-switcher button:hover {
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="magenta" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>') !important;
+}
+
 .footer {
     position: fixed; 
     left: 0px;
