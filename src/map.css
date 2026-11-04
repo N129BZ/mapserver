@@ -370,7 +370,7 @@ hr {
     border-width: 2px;
 }
 .popup-title-area {
-    display: flex;
+    display: inline-block;
     align-items: center;      /* vertical centering */
     justify-content: center;  /* horizontal centering */
     font-family: B612; 
@@ -378,7 +378,9 @@ hr {
     font-size: large;
     text-align: center;
     margin-top: 0px;
-    height: 42px;
+    height: auto;
+    max-height: 65px;
+	overflow-y: auto;
     width: 400px;
     border: 1px solid #000;
     border-radius: 8px;
