@@ -170,7 +170,9 @@ document.addEventListener('DOMContentLoaded', async function () {
     const deflonlat = appsettings.defaultposition;
     const defaultPosition = fromLonLat(deflonlat);
 
-    document.getElementById('radius-header').textContent = `Airport Search Radius\nDouble-click on any map location`;
+    document.getElementById('radius-header').innerHTML = `Airport Search Radius Selector<hr>` +
+                                                         `Double-click on any map location to Search<br>` +
+                                                         `Click on an airport dot for Field Information`;
 
 
     document.addEventListener('visibilitychange', async function () {
@@ -879,7 +881,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             <tr><td style="padding:6px 8px; border-bottom: 1px solid #e0e0e0;">Turf</td><td style="text-align:right; padding:6px 8px; border-bottom: 1px solid #e0e0e0;">
                 <img src='data:image/svg+xml;utf8,${encodeURIComponent(String(airportSvgs.turf).replace(`width="12" height="12"`, `width="20" height="20"`))}'>
                 </td></tr>
-            <tr><td style="padding:6px 8px; border-bottom: 1px solid #e0e0e0;">Seaport</td><td style="text-align:right; padding:6px 8px; border-bottom: 1px solid #e0e0e0;">
+            <tr><td style="padding:6px 8px; border-bottom: 1px solid #e0e0e0;">Seaplane Base</td><td style="text-align:right; padding:6px 8px; border-bottom: 1px solid #e0e0e0;">
                 <img src='data:image/svg+xml;utf8,${encodeURIComponent(String(airportSvgs.seaport).replace(`width="12" height="12"`, `width="20" height="20"`))}'>
                 </td></tr>
             
