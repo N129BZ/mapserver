@@ -1027,26 +1027,31 @@ document.addEventListener('DOMContentLoaded', async function () {
         console.log('Selected radius:', selectedRadius, 'miles');
     });
 
-    pirepVectorLayer.on('prerender', (evt) => {
-        // Use actual epoch timestamps to ensure smooth, low-rate rotation 
-        // regardless of minor frame drops or hardware refresh speeds.
-        const timeInSeconds = evt.frameState.time / 1000;
-        const DEGREES_PER_SECOND = 20;
-        const targetRotationSpeed = DEGREES_PER_SECOND * (Math.PI / 180);
-        const currentRotation = (timeInSeconds * targetRotationSpeed) % (Math.PI * 2);
+    async function animate() {
+        // Only consume CPU/GPU cycles if the layer is actually turned on
+        if (pirepVectorLayer.getVisible()) {
+            const timeInSeconds = Date.now() / 1000; // Use system time since we are outside the frameState
+            const DEGREES_PER_SECOND = 20;
+            const targetRotationSpeed = DEGREES_PER_SECOND * (Math.PI / 180);
+            const currentRotation = (timeInSeconds * targetRotationSpeed) % (Math.PI * 2);
 
-        // Mutate the single shared style property once per frame
-        pirepIconStyle.getImage().setRotation(currentRotation);
-
-        // Force a fresh frame render cycle on the next tick
-        map.render();
-    });
-
-    function animate() {
+            // get the icons rotating and notify the layer to update
+            pirepIconStyle.getImage().setRotation(currentRotation);
+            pirepVectorLayer.getSource().changed();
+            
+            // Tell OpenLayers to draw a new frame immediately on the next tick
+            map.render();
+        }
+        // Keep the animation loop running
         requestAnimationFrame(animate);
     }
 
-    animate();
+    /**
+     * Call the animate function so when the pirep layer becomes 
+     * visible, the feature icons will rotate smoothly
+     */
+    await animate();
+
     /**
      * Event to handle scaling of feature images
      */
@@ -2018,7 +2023,12 @@ document.addEventListener('DOMContentLoaded', async function () {
             return;
         }
         try {
+            // if there is already a report from this aircraft, remove it before adding a new one
             const id = pirep.aircraft_ref ? pirep.aircraft_ref : pirep.station_id;
+            const existingFeature = pirepVectorSource.getFeatureById(id);
+            if (existingFeature) {
+                pirepVectorSource.removeFeature(existingFeature);
+            }
             const pirepFeature = new Feature({
                 ident: id,
                 id: id,
@@ -2027,7 +2037,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                 geometry: new Point(fromLonLat([pirep.longitude, pirep.latitude])),
                 zIndex: 9999
             });
-
+            pirepFeature.setId(id);
             pirepFeature.setStyle(pirepIconStyle);
             pirepVectorSource.addFeature(pirepFeature);
             pirepVectorSource.changed();
