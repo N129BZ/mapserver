@@ -433,7 +433,31 @@ document.addEventListener('DOMContentLoaded', async function () {
         }
     }
 
-    await startListening();
+    /**
+     * Check to see if internet is available
+     * @returns boolean
+     */
+    async function checkOnlineStatus() {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 1000); // 3-second timeout
+
+        try {
+            const response = await fetch('https://google.com', {
+            method: 'HEAD',
+            mode: 'no-cors', // Prevents CORS errors on web clients
+            signal: controller.signal,
+            cache: 'no-store' // Prevents browser caching from faking a successful check
+            });
+            
+            clearTimeout(timeoutId);
+            return true; // Server responded, client is online
+        } catch (error) {
+            clearTimeout(timeoutId);
+            return false; // Request failed or timed out, client is offline
+        }
+    }
+
+    const internetAvailable = await checkOnlineStatus();
 
     /**
      * The scale of miles shown on lower left corner of map
@@ -462,33 +486,17 @@ document.addEventListener('DOMContentLoaded', async function () {
     });
     map.addOverlay(popupoverlay);
 
-    let osmTileLayer = new TileLayer({
-        source: new OSM({
-            onTileLoadError: function (event) { } 
-        }),
-        visible: true,
-        type: "none",
-        zIndex: 0,
-    });
-    map.addLayer(osmTileLayer);
-
-    /**
-    * Tile source for animated weather
-    */
-    const animatedWxTileSource = new TileWMS({
-        attributions: ['Iowa State University'],
-        url: appsettings.animatedwxurl,
-        params: { 'LAYERS': 'nexrad-n0r-wmst' },
-    });
-
-    const animatedWxTileLayer = new TileLayer({
-        title: "Animated Weather",
-        extent: extent,
-        source: animatedWxTileSource,
-        visible: false,
-        zIndex: 11
-    });
-    map.addLayer(animatedWxTileLayer);
+    if (internetAvailable) {
+        let osmTileLayer = new TileLayer({
+            source: new OSM({
+                onTileLoadError: function (event) { } 
+            }),
+            visible: true,
+            type: "none",
+            zIndex: 0,
+        });
+        map.addLayer(osmTileLayer);
+    }
 
     const metarVectorLayer = new VectorLayer({
         source: new VectorSource(),
@@ -575,6 +583,8 @@ document.addEventListener('DOMContentLoaded', async function () {
         }
     });
 
+    await startListening();
+
     /**
      * For weather animation, gets the time 3 hours ago
      * @returns Date
@@ -584,16 +594,41 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
 
     /**
+    * Tile source for animated weather
+    */
+    let animatedWxTileSource = null;
+    let animatedWxTileLayer = null;
+    if (internetAvailable) {
+        animatedWxTileSource = new TileWMS({
+            attributions: ['Iowa State University'],
+            url: appsettings.animatedwxurl,
+            params: { 'LAYERS': 'nexrad-n0r-wmst' },
+        });
+
+        animatedWxTileLayer = new TileLayer({
+            title: "Animated Weather",
+            extent: extent,
+            source: animatedWxTileSource,
+            visible: false,
+            zIndex: 12
+        });
+        map.addLayer(animatedWxTileLayer);
+    }
+
+    /**
      * Update the time clock  
      */
     function setTime() {
-        startDate.setMinutes(startDate.getMinutes() + 15);
-        if (startDate > Date.now()) {
-            startDate = getTimeThreeHoursAgo();
+        if (internetAvailable) {
+            startDate.setMinutes(startDate.getMinutes() + 15);
+            if (startDate > Date.now()) {
+                startDate = getTimeThreeHoursAgo();
+            }
+            animatedWxTileSource.updateParams({ 'TIME': startDate.toISOString() });
+            updateInfo();
         }
-        animatedWxTileSource.updateParams({ 'TIME': startDate.toISOString() });
-        updateInfo();
     }
+
     setTime();
 
     /**
@@ -634,15 +669,16 @@ document.addEventListener('DOMContentLoaded', async function () {
         el.innerHTML = getLocalTime(startDate.toString());
     }
 
-    animatedWxTileLayer.on('change:visible', async () => {
-        let visible = animatedWxTileLayer.get('visible');
-        animatecontrol.style.visibility = visible ? 'visible' : 'hidden';
-        visible ? await playWeatherRadar() : await stopWeatherRadar()
-    });
+    if (internetAvailable) {
+        animatedWxTileLayer.on('change:visible', async () => {
+            let visible = animatedWxTileLayer.get('visible');
+            animatecontrol.style.visibility = visible ? 'visible' : 'hidden';
+            visible ? await playWeatherRadar() : await stopWeatherRadar()
+        });
+    }
 
     async function loadTileDatabases() {
         try {
-
             const response = await fetch('/tiles/tilesets');
             const dblist = await response.json();
 
@@ -650,44 +686,59 @@ document.addEventListener('DOMContentLoaded', async function () {
 
             if (dblist) {
                 const entries = Object.entries(dblist).reverse();
-                for (const [dbname, metadata] of entries) {
-
-                    let zOrder = 10;
-                    if (dbname.toLowerCase() === "terminal") {
-                        zOrder = 12;
-                    }
+                for (const [dbname, metadata] of entries) {                  
                     const fixdbname = dbname.replace("_", " ")
-                    const title = metadata.description ? metadata.description.replace("_", " ") : fixdbname;
-                    const layertype = "overlay";
-                    const visible = false;
-                    const zindex = 4;
-                    const displayInSwitcher = true;
+                    let zOrder = 10;
+                    let title = fixdbname;
+                    let layertype = "overlay";
+                    let visible = false;
+                    let displayInSwitcher = true;
+                    let zindex = title.toLowerCase().search(/terminal/i) > -1 ? 90 : 80;
+                    let createLayer = true;
 
-                    const dburl = URL_GET_TILE.replace("{dbname}", dbname);
-                    const layer = new TileLayer({
-                        source: new XYZ({
-                            onTileLoadError: function (event) { }, // Suppress annoying console 404 errors
-                            url: dburl,
-                            maxzoom: metadata && metadata.maxzoom ? metadata.maxzoom : undefined,
-                            minzoom: metadata && metadata.minzoom ? metadata.minzoom : undefined,
-                            attributions: metadata && metadata.attribution ? metadata.attribution : undefined,
-                            attributionsCollapsible: false,
-                        }),
-                        name: fixdbname,
-                        title: title,
-                        type: layertype,
-                        visible: visible,
-                        extent: extent,
-                        zIndex: zindex,
-                        canvasWillReadFrequently: true,
-                        displayInLayerSwitcher: displayInSwitcher
-                    });
-                    map.addLayer(layer);
+                    if (metadata.description) {
+                        title = metadata.description.replace("_", " ");
+                    } 
+                    
+                    if (metadata.name === "OSM Low Detail") {
+                        if (!internetAvailable) {
+                            title = "";
+                            layertype = "base";
+                            zindex = 0;
+                            visible = true;
+                            displayInSwitcher = false;
+                        } else {
+                            createLayer = false;
+                        }
+                    }
+                    
+                    if (createLayer) {
+                        const dburl = URL_GET_TILE.replace("{dbname}", dbname);
+                        const layer = new TileLayer({
+                            source: new XYZ({
+                                onTileLoadError: function (event) { }, // Suppress annoying console 404 errors
+                                url: dburl,
+                                maxzoom: metadata && metadata.maxzoom ? metadata.maxzoom : undefined,
+                                minzoom: metadata && metadata.minzoom ? metadata.minzoom : undefined,
+                                attributions: metadata && metadata.attribution ? metadata.attribution : undefined,
+                                attributionsCollapsible: false,
+                            }),
+                            name: fixdbname,
+                            title: title,
+                            type: layertype,
+                            visible: visible,
+                            extent: extent,
+                            zIndex: zindex,
+                            canvasWillReadFrequently: true,
+                            displayInLayerSwitcher: displayInSwitcher
+                        });
+                        map.addLayer(layer);
+                    }
                 }
             }
-        }
-        catch (err) {
-            console.log("TILE DB SETUP ERROR:", err);
+
+        } catch(error) {
+            console.log(error);
         }
     }
 
