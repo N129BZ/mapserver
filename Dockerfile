@@ -1,6 +1,10 @@
 # --- Build Stage ---
 FROM node:24-alpine AS builder
-WORKDIR /app
+WORKDIR /mapserver
+
+# Install build dependencies for native addon compilation (better-sqlite3)
+RUN apk add --no-cache python3 make g++ 
+
 COPY package*.json ./
 RUN npm install
 COPY client/package*.json ./client/
@@ -10,13 +14,19 @@ RUN npm run build-client
 
 # --- Production Stage ---
 FROM node:24-alpine
-WORKDIR /app
+WORKDIR /mapserver
 ENV NODE_ENV=production
+
+# Install native dependencies if required at production runtime
+RUN apk add --no-cache python3 make g++
+
 COPY package*.json ./
 RUN npm install --only=production
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/server.js ./
-COPY --from=builder /app/settings.json ./
-# Expose your active port
+
+# Aligned paths: copy from /mapserver instead of /app
+COPY --from=builder /mapserver/dist ./dist
+COPY --from=builder /mapserver/server.js ./
+COPY --from=builder /mapserver/settings.json ./
+
 EXPOSE 8600
 CMD ["node", "server.js"]
