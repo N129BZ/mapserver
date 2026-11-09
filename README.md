@@ -1,10 +1,10 @@
 # mapserver
 
-A lightweight Express-based map server for serving chart tiles, airport information, and weather data. The project is designed around MBTiles/SQLite map databases, with a WebSocket stream for live weather updates.
+A lightweight Express-based map server and client for serving chart tiles, airport information, and weather data. The project is designed around MBTiles/SQLite map databases, with a client WebSocket stream for live weather updates.
 
 ## Overview
 
-This server is the partner of https://github.com/mapclient and serves the following:
+This project contains the server and client sides for an express server with a front end client application and serves the following:
 
 - serves any mbtiles map tile databases found in the `tiles/` directory
 - exposes map metadata and tile endpoints for map clients
@@ -15,14 +15,14 @@ This server is the partner of https://github.com/mapclient and serves the follow
 - provides airport lookup endpoints using the bundled world-wide airport database
 - stores per-user map state in a local SQLite database using signed cookies
 
-It is intended for browser-based map usage and is especially useful for aviation charts and meteorological overlays.
+It is used for browser-based aviation charts, weather and meteorological overlays.
 
 ## Repository layout
 
 - `server.js` — Express server, database loading, weather downloads, and tile endpoints
-- `dist/` — static frontend assets, including all files from mapclient vite build 
+- `dist/` — static frontend assets, produced by client vite build 
 - `tiles/` — MBTiles/SQLite map datasets. App Looks for MBTiles databases to serve map tiles
-- `weather/` — Aviationweather.gov weather files, downloaded at a user-defined interval and immediately sent to mapclient(s) 
+- `weather/` — Aviationweather.gov weather files, downloaded at a user-defined interval and immediately sent to client(s) 
 - `airports.db` — SQLite airport database used for airport data, runways, and frequencies
 - `mapstate.db` — user state persistence for map settings - picks up where you left off
 - `appsettings.json` — runtime configuration for ports, weather source URLs, and app defaults
@@ -75,7 +75,7 @@ Or run directly:
 node server.js
 ```
 
-The server listens on `0.0.0.0:8500` by default but will use the port you designate:
+The server listens on `0.0.0.0:8500` by default but will use any port you designate:
 
 ```text
 http://localhost:8500/
@@ -105,4 +105,4 @@ The app can download weather data from ADDS endpoints and save it under `weather
 
 ## License
 
-This project is distributed under the MIT License. See `LICENSE` for details.
+This project is distributed under the Apache 2 License. See `LICENSE` for details.
