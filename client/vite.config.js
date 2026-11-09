@@ -2,6 +2,25 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   root: 'src',
+  server: {
+    watch: {
+      usePolling: true,
+      interval: 100,
+      ignored: ['**/dist/**', '**/tiles/**', '**/weather/**', '**/*.mbtiles', '**/*.db*']
+    },
+    proxy: {
+      // Proxies airport lookup and database endpoints
+      '/airport': 'http://localhost:8600',
+      '/airportlist': 'http://localhost:8600',
+      '/appsettings': 'http://localhost:8600',
+      '/databaselist': 'http://localhost:8600',
+      '/tiles': 'http://localhost:8600',
+      '/api': {
+        target: 'http://localhost:8600',
+        ws: true
+      }
+    }
+  },
   build: {
     outDir: '../dist',
     sourcemap: true,

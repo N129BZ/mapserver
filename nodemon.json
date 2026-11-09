@@ -1,0 +1,5 @@
+{
+  "watch": ["server.js", "settings.json"],
+  "ignore": ["client/*", "dist/*", "tiles/*","weather/*", "*.db", "*.mbtiles", "*.db-journal"],
+  "legacyWatch": true
+}

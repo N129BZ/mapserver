@@ -1,0 +1,33 @@
+name: Node.js CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js Environment
+      uses: actions/setup-node@v4
+      with:
+        node-version: '24' # Aligns with your modern runtime environment
+        cache: 'npm'
+
+    - name: Install Root Dependencies (Server)
+      run: npm ci
+
+    - name: Build Vite Client Application
+      run: npm run build-client
+
+    - name: Run Server Tests
+      run: |
+        # Only runs if you have a test suite configured in your root package.json.
+        # If you don't have tests yet, you can comment this out.
+        npm test --if-present
