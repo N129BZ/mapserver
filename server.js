@@ -23,13 +23,12 @@ import { XMLParser } from 'fast-xml-parser';
 //////////////////////////////////////////////////////////////
 
 const COOKIE_SECRET = '9a7b78421d53bebd3d345f548fd7e3384b27df46d4c76385e58233ada5e59f76';
-const DIRNAME = cwd();
-const settingsPath = path.resolve(DIRNAME, 'settings.json');
+const settingsPath = path.resolve(appdir, 'settings.json');
 const appsettings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
-const ROOT_PATH = path.resolve(DIRNAME, "dist");
-const TILE_PATH = path.resolve(DIRNAME, "tiles");
+const ROOT_PATH = path.resolve(appdir, "dist");
+const TILE_PATH = path.resolve(appdir, "tiles");
 const DBEngine = sqlite.Database || sqlite.DatabaseSync;
-const airportdb = new DBEngine(path.resolve(DIRNAME, "airports.db"), { readonly: true });
+const airportdb = new DBEngine(path.resolve(appdir, "airports.db"), { readonly: true });
 
 const connections = new Map();
 const databaselist = new Map();
@@ -37,6 +36,43 @@ const databaselist = new Map();
 if (!DBEngine) {
   throw new Error("This application requires Node.js v24+ with native SQLite support.");
 }
+
+/**
+ * Utility to see if we are in a docker container
+ * @returns boolean
+ */
+let appdir = cwd();
+let isdocker = isRunningInDocker();
+function isRunningInDocker() {
+    let indocker = false;
+    try {
+        let r = execSync(`cat /proc/1/cgroup`, {encoding: "utf8"});
+        indocker = (r.search("/docker/") > -1);
+    }
+    catch {}
+    if (!indocker) {
+        indocker = fs.existsSync("/.dockerenv") || process.env.DOCKER === "true";
+    }
+    if (indocker) {
+        console.log("Running in docker!");
+        appdir = "/mapserver";
+    }
+    return indocker;
+}
+
+let settingspath = path.join(appdir, "settings.json");
+if (isdocker) {
+    const externalConfigDir = path.join(appdir, "config");
+    const externalSettingsPath = path.join(externalConfigDir, "settings.json");
+    if (!fs.existsSync(externalConfigDir)) {
+        fs.mkdirSync(externalConfigDir, { recursive: true });
+    }
+    if (!fs.existsSync(externalSettingsPath)) {
+        fs.copyFileSync(settingspath, externalSettingsPath);
+    }
+    settingspath = externalSettingsPath;
+}
+const settings = JSON.parse(fs.readFileSync(settingspath, "utf-8")).settings;
 
 function loadDatabaseList() {
     try {
@@ -201,7 +237,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json({ limit: '10mb' }));
 app.use(cors());
-const mapstatedb = new DBEngine(path.resolve(DIRNAME, "mapstate.db"));
+const mapstatedb = new DBEngine(path.resolve(appdir, "mapstate.db"));
 // Create user state table if it doesn't exist
 mapstatedb.exec(`CREATE TABLE IF NOT EXISTS user_state (
                  id TEXT PRIMARY KEY,
@@ -298,14 +334,14 @@ app.post("/api/userdata", (req, res) => {
 });
 
 app.get("/api/settings/edit", (req, res) => {
-    res.sendFile(path.resolve(DIRNAME, "settingsedit.html"));
+    res.sendFile(path.resolve(appdir, "settingsedit.html"));
 });
 
 app.post("/api/settings/edit", async(req,res) => {
     try {
         // req.body contains the parsed JSON object
         const dataToSave = req.body;
-        const filePath = path.join(DIRNAME, 'settings.json');
+        const filePath = path.join(appdir, 'settings.json');
 
         await writeFile(filePath, JSON.stringify(dataToSave, null, 2), 'utf8');
 
@@ -559,7 +595,7 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 async function sendWeatherData() {
     const sources = ["metars", "tafs", "aircraftreports"];
     for (const source of sources) {
-        const filePath = path.resolve(DIRNAME, "weather", `${source}.json`);
+        const filePath = path.resolve(appdir, "weather", `${source}.json`);
         const jsonData = await getJsonDataFromFile(filePath);
         const responseData = jsonData.response.data;
         await sendMessageToClients(JSON.stringify(responseData));
@@ -621,7 +657,7 @@ async function downloadAndExtractXML() {
 
     for (const source of sources) {
         const url = appsettings.addscurrentwxurl.replace("###", source);
-        const outputTmp = path.resolve(DIRNAME, "weather", `${source}.json.tmp`);
+        const outputTmp = path.resolve(appdir, "weather", `${source}.json.tmp`);
         const outputFile = outputTmp.replace(".tmp", "");
 
         if (shouldDownload(outputFile)) {
