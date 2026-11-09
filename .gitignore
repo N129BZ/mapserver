@@ -19,7 +19,7 @@ pids
 tiles/
 weather/
 
-package-lock.json
+# package-lock.json
 downloadmaps.sh
 mapstate.db
 openflightmaps.mbtiles
