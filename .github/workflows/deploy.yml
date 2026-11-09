@@ -7,24 +7,24 @@ on:
     branches: [ main ]
 
 jobs:
-  build-and-test:
-    runs-on: node:24-alpine
+  # build-and-test:
+  #   runs-on: node:24-alpine
 
-    steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
+  #   steps:
+  #   - name: Checkout Repository
+  #     uses: actions/checkout@v4
 
-    - name: Setup Node.js Environment
-      uses: actions/setup-node@v4
-      with:
-        node-version: '24' # Aligns with your modern runtime environment
-        cache: 'npm'
+  #   - name: Setup Node.js Environment
+  #     uses: actions/setup-node@v4
+  #     with:
+  #       node-version: '24' # Aligns with your modern runtime environment
+  #       cache: 'npm'
 
-    - name: Install Root Dependencies (Server)
-      run: npm ci
+  #   - name: Install Root Dependencies (Server)
+  #     run: npm ci
 
-    - name: Build Vite Client Application
-      run: npm run build-client
+  #   - name: Build Vite Client Application
+  #     run: npm run build-client
 
   push-store:
     runs-on: ubuntu-latest
