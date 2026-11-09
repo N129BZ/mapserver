@@ -1,0 +1,17 @@
+# Ignore node_modules and build output
+node_modules/
+dist/
+package-lock.json
+build.sh
+
+# Ignore database and other generated files
+Sectional.db
+main_old.js
+# Ignore logs and temp files
+*.log
+*.tmp
+# Ignore OS-specific files
+.DS_Store
+Thumbs.db
+# Ignore IDE/editor files
+.idea/

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="./map.css">
+  <link rel="icon" type="image/png" href="/images/mapclient.png">
+  <title>Map Client</title>
+</head>
+<body>
+  <div id="map"></div>
+  <div class="wxbuttons" id="wxbuttons" role="group" aria-label="Animation controls">
+      <button id="play" class="wxbutton" type="button">Play</button>
+      <button id="pause" class="wxbutton" type="button">Pause</button>
+      <span id="info"></span>
+  </div>
+  <script type="module" src="./map.js"></script>
+  <div id="popup" class="ol-popup">
+    <button id="popup-closer" class="ol-popup-closer">close</button>
+    <div id="popup-content">
+      <!-- Template for creating map weather popups -->
+      <div class="tplcontainer" id="tplcontainer" style="display:none;">
+        <div class="tplheader" id="tplheader">Terminal Area Forecast - ${id}</div>
+        <table class="tplbody" id="tplbody">${weatherdata}</table>
+        <div class="tplfooter" id="tplfooter">
+          <textarea class="tplrawtext" id="tplrawtext" rows="2">${rawtext}</textarea>
+          <button class="tplbutton" onclick="closePopup()">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Airport Radius Selection Dropdown -->
+  <div id="airport-radius-selector" class="airport-radius-selector">
+    <div class="radius-header" id="radius-header"></div>
+    <select id="radius-dropdown" class="radius-dropdown">
+      <option value="">Select radius...</option>
+      <option value="clear">Clear current radius</option>
+      <option value="10">10 mile radius</option>
+      <option value="25">25 mile radius</option>
+      <option value="50">50 mile radius</option>
+      <option value="100">100 mile radius</option>
+      <option value="250">250 mile radius</option>
+      <!-- <option value="500">500 mile radius</option> -->
+    </select>
+  </div>
+  <div class="color-legend" id="color-legend"></div>
+</body>
+</html>
