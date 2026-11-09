@@ -22,34 +22,32 @@ import { XMLParser } from 'fast-xml-parser';
 //    https://davidmegginson.github.io/ourairports-data/
 //////////////////////////////////////////////////////////////
 
+const DBEngine = sqlite.Database || sqlite.DatabaseSync;
+if (!DBEngine) {
+    throw new Error("This application requires Node.js v24+ with native SQLite support.");
+}
+
+let appdir = cwd();
+
 const COOKIE_SECRET = '9a7b78421d53bebd3d345f548fd7e3384b27df46d4c76385e58233ada5e59f76';
 const settingsPath = path.resolve(appdir, 'settings.json');
-const appsettings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
 const ROOT_PATH = path.resolve(appdir, "dist");
 const TILE_PATH = path.resolve(appdir, "tiles");
-const DBEngine = sqlite.Database || sqlite.DatabaseSync;
 const airportdb = new DBEngine(path.resolve(appdir, "airports.db"), { readonly: true });
-
 const connections = new Map();
 const databaselist = new Map();
-
-if (!DBEngine) {
-  throw new Error("This application requires Node.js v24+ with native SQLite support.");
-}
 
 /**
  * Utility to see if we are in a docker container
  * @returns boolean
  */
-let appdir = cwd();
-let isdocker = isRunningInDocker();
 function isRunningInDocker() {
     let indocker = false;
     try {
-        let r = execSync(`cat /proc/1/cgroup`, {encoding: "utf8"});
+        let r = execSync(`cat /proc/1/cgroup`, { encoding: "utf8" });
         indocker = (r.search("/docker/") > -1);
     }
-    catch {}
+    catch { }
     if (!indocker) {
         indocker = fs.existsSync("/.dockerenv") || process.env.DOCKER === "true";
     }
@@ -60,6 +58,7 @@ function isRunningInDocker() {
     return indocker;
 }
 
+let isdocker = isRunningInDocker();
 let settingspath = path.join(appdir, "settings.json");
 if (isdocker) {
     const externalConfigDir = path.join(appdir, "config");
@@ -166,7 +165,7 @@ const wss = new WebSocketServer({ noServer: true });
             const { pathname } = new URL(request.url, `http://${request.headers.host}`);
 
             // Route-based checking: Only upgrade if the path matches exactly
-            if (pathname === `${appsettings.wsroute}`) {
+            if (pathname === `${settings.wsroute}`) {
                 wss.handleUpgrade(request, socket, head, (ws) => {
                     wss.emit('connection', ws, request);
                 });
@@ -217,8 +216,8 @@ app.use((req, res, next) => {
 
         // Seed initial state in database for the new user
         const mapstate = {
-            center: appsettings.defaultposition,
-            zoom: appsettings.startupzoom,
+            center: settings.defaultposition,
+            zoom: settings.startupzoom,
             rotation: 0,
             layerstates: [],
             radius: 25
@@ -268,7 +267,7 @@ app.get('/', (req, res) => {
     res.sendFile(path.resolve(ROOT_PATH, "map.html"));
 });
 
-app.get("/api/appsettings", (req, res) => {
+app.get("/api/settings", (req, res) => {
     // give client freshly read settings in case of running edits
     const clientsettings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
     res.json(clientsettings);
@@ -291,7 +290,7 @@ app.get("/airportlist", (req, res) => {
 });
 
 app.get("/api/userdata", (req, res) => {
-    const userId = req.signedCookies.mapuser_id; 
+    const userId = req.signedCookies.mapuser_id;
     if (!userId) {
         return res.status(401).json({ error: "Unauthorized: Missing user identity" });
     }
@@ -313,7 +312,7 @@ app.get("/api/userdata", (req, res) => {
 });
 
 app.post("/api/userdata", (req, res) => {
-    const userId = req.signedCookies.mapuser_id; 
+    const userId = req.signedCookies.mapuser_id;
     if (!userId) {
         return res.status(401).json({ error: "Unauthorized: Missing user identity" });
     }
@@ -337,7 +336,7 @@ app.get("/api/settings/edit", (req, res) => {
     res.sendFile(path.resolve(appdir, "settingsedit.html"));
 });
 
-app.post("/api/settings/edit", async(req,res) => {
+app.post("/api/settings/edit", async (req, res) => {
     try {
         // req.body contains the parsed JSON object
         const dataToSave = req.body;
@@ -346,7 +345,7 @@ app.post("/api/settings/edit", async(req,res) => {
         await writeFile(filePath, JSON.stringify(dataToSave, null, 2), 'utf8');
 
         console.log(`settings.json successfully written to ${filePath}`);
-        
+
         return res.status(200).json({ message: 'File written successfully' });
 
     } catch (error) {
@@ -442,11 +441,11 @@ function handleAirportListRequest(req, res) {
             `FROM airports WHERE airports.latitude_deg BETWEEN ${minLat} AND ${maxLat} ` +
             `AND airports.longitude_deg BETWEEN ${minLon} AND ${maxLon} `;
 
-        if (!appsettings.getHeliports) {
+        if (!settings.getHeliports) {
             sql += `AND type NOT LIKE '%heliport%' AND UPPER(name) NOT LIKE '%HELIPORT%' `;
         }
 
-        if (!appsettings.getClosedAirports) {
+        if (!settings.getClosedAirports) {
             sql += `AND type NOT LIKE '%closed%' AND UPPER(name) NOT LIKE '%CLOSED%'; `;
         }
 
@@ -477,8 +476,8 @@ function handleAirportListRequest(req, res) {
     }
 };
 
-httpServer.listen(appsettings.httpport, '0.0.0.0', () => {
-    console.log(`Server listening on port ${appsettings.httpport}`);
+httpServer.listen(settings.httpport, '0.0.0.0', () => {
+    console.log(`Server listening on port ${settings.httpport}`);
 });
 
 async function handleAirportRequest(req, res) {
@@ -656,7 +655,7 @@ async function downloadAndExtractXML() {
     const sources = ["metars", "tafs", "aircraftreports"];
 
     for (const source of sources) {
-        const url = appsettings.addscurrentwxurl.replace("###", source);
+        const url = settings.addscurrentwxurl.replace("###", source);
         const outputTmp = path.resolve(appdir, "weather", `${source}.json.tmp`);
         const outputFile = outputTmp.replace(".tmp", "");
 
@@ -712,7 +711,7 @@ async function downloadAndExtractXML() {
 function shouldDownload(outputPath) {
     var answer = false;
     try {
-        const thresholdMs = appsettings.wxupdateintervalmsec;
+        const thresholdMs = settings.wxupdateintervalmsec;
 
         // Get file stats
         const stats = statSync(outputPath);
@@ -752,7 +751,7 @@ async function runDownloads() {
         }
 
         // Wait cleanly for the specified interval before looping again
-        await delay(appsettings.wxupdateintervalmsec);
+        await delay(settings.wxupdateintervalmsec);
     }
 }
 

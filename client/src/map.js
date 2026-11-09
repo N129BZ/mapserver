@@ -79,7 +79,7 @@ const URL_GET_TILE = `${URL_SERVER}/tiles/{dbname}/{z}/{x}/{-y}`;
  * Set appsettings to default values, 
  * will be updated by server on connect.
  */
-let appsettings = "";
+let settings = "";
 let map = null;
 let socket = null;
 let viewextent = [-180, -85, 180, 85];
@@ -100,12 +100,12 @@ const { promise, resolve, reject } = Promise.withResolvers();
 document.addEventListener('DOMContentLoaded', async function () {
     // Fetch settings asynchronously BEFORE anything else inside the DOM load lifecycle
     try {
-        const response = await fetch(`${URL_SERVER}/api/appsettings`);
+        const response = await fetch(`${URL_SERVER}/api/settings`);
         if (!response.ok) {
             throw new Error(`Server responded with status: ${response.status}`);
         }
-        appsettings = await response.json();
-        console.log("App settings loaded:", appsettings);
+        settings = await response.json();
+        console.log("App settings loaded:", settings);
     } catch (error) {
         console.error("CRITICAL CONFIGURATION ERROR:", error);
         document.body.innerHTML = '';
@@ -167,12 +167,12 @@ document.addEventListener('DOMContentLoaded', async function () {
     const popup = document.getElementById('popup');
     const popupcontent = document.getElementById('popup-content');
     const radiusSelector = document.getElementById('airport-radius-selector');
-    const deflonlat = appsettings.defaultposition;
+    const deflonlat = settings.defaultposition;
     const defaultPosition = fromLonLat(deflonlat);
 
     document.getElementById('radius-header').innerHTML = `Airport Search Radius Selector<hr>` +
-                                                         `Double-click on any map location to Search<br>` +
-                                                         `Click on an airport dot for Field Information`;
+        `Double-click on any map location to Search<br>` +
+        `Click on an airport dot for Field Information`;
 
 
     document.addEventListener('visibilitychange', async function () {
@@ -299,10 +299,10 @@ document.addEventListener('DOMContentLoaded', async function () {
 
             if (mapstate.center && mapstate.zoom) {
                 // Check for last position override
-                let searchradius = appsettings.defaultsearchradius;
-                if (appsettings.overridelastposition) {
+                let searchradius = settings.defaultsearchradius;
+                if (settings.overridelastposition) {
                     view.setCenter(defaultPosition);
-                    view.setZoom(appsettings.startupzoom);
+                    view.setZoom(settings.startupzoom);
                 } else {
                     view.setCenter(mapstate.center);
                     view.setZoom(parseFloat(mapstate.zoom));
@@ -317,7 +317,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                 }
             } else {
                 view.setCenter(defaultPosition);
-                view.setZoom(parseFloat(appsettings.startupzoom));
+                view.setZoom(parseFloat(settings.startupzoom));
             }
             console.log("Map state restored!");
         } catch (error) {
@@ -366,7 +366,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             console.log("WebSocket already open or connecting. Skipping.");
             return;
         }
-        const URL_WEBSOCKET = `${URL_SERVER}${appsettings.wsroute}`;
+        const URL_WEBSOCKET = `${URL_SERVER}${settings.wsroute}`;
         //console.log(URL_WEBSOCKET);
         socket = new WebSocket(URL_WEBSOCKET);
         socket.onmessage = async (evt) => {
@@ -443,12 +443,12 @@ document.addEventListener('DOMContentLoaded', async function () {
 
         try {
             const response = await fetch('https://google.com', {
-            method: 'HEAD',
-            mode: 'no-cors', // Prevents CORS errors on web clients
-            signal: controller.signal,
-            cache: 'no-store' // Prevents browser caching from faking a successful check
+                method: 'HEAD',
+                mode: 'no-cors', // Prevents CORS errors on web clients
+                signal: controller.signal,
+                cache: 'no-store' // Prevents browser caching from faking a successful check
             });
-            
+
             clearTimeout(timeoutId);
             return true; // Server responded, client is online
         } catch (error) {
@@ -476,7 +476,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         target: 'map',
         view: new View({
             center: defaultPosition,
-            zoom: appsettings.startupzoom,
+            zoom: settings.startupzoom,
             enableRotation: false,
             minZoom: 1,
             maxZoom: 22,
@@ -489,7 +489,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     if (internetAvailable) {
         let osmTileLayer = new TileLayer({
             source: new OSM({
-                onTileLoadError: function (event) { } 
+                onTileLoadError: function (event) { }
             }),
             visible: true,
             type: "none",
@@ -601,7 +601,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     if (internetAvailable) {
         animatedWxTileSource = new TileWMS({
             attributions: ['Iowa State University'],
-            url: appsettings.animatedwxurl,
+            url: settings.animatedwxurl,
             params: { 'LAYERS': 'nexrad-n0r-wmst' },
         });
 
@@ -686,7 +686,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
             if (dblist) {
                 const entries = Object.entries(dblist).reverse();
-                for (const [dbname, metadata] of entries) {                  
+                for (const [dbname, metadata] of entries) {
                     const fixdbname = dbname.replace("_", " ")
                     let zOrder = 10;
                     let title = fixdbname;
@@ -698,8 +698,8 @@ document.addEventListener('DOMContentLoaded', async function () {
 
                     if (metadata.description) {
                         title = metadata.description.replace("_", " ");
-                    } 
-                    
+                    }
+
                     if (metadata.name === "OSM Low Detail") {
                         if (!internetAvailable) {
                             title = "";
@@ -711,7 +711,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                             createLayer = false;
                         }
                     }
-                    
+
                     if (createLayer) {
                         const dburl = URL_GET_TILE.replace("{dbname}", dbname);
                         const layer = new TileLayer({
@@ -737,7 +737,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                 }
             }
 
-        } catch(error) {
+        } catch (error) {
             console.log(error);
         }
     }
@@ -917,10 +917,10 @@ document.addEventListener('DOMContentLoaded', async function () {
 
         let detailhtml = `<table style="width: 100%; border-collapse: collapse;">
                             <tr><td colspan="2" class="radius-header" style="text-align:center">Airport Marker Legend</td></tr>`;
-        if (appsettings.getClosedAirports) {
+        if (settings.getClosedAirports) {
             detailhtml += closedhtml;
         }
-        if (appsettings.getHeliports) {
+        if (settings.getHeliports) {
             detailhtml += helihtml;
         }
         detailhtml += `<tr><td style="padding:6px 8px; border-bottom: 1px solid #e0e0e0;">Towered</td><td style="text-align:right; padding:6px 8px; border-bottom: 1px solid #e0e0e0;">
@@ -999,10 +999,10 @@ document.addEventListener('DOMContentLoaded', async function () {
             let bgcolor;
             let fgcolor = "white";
 
-            if (appsettings.getClosedAirports && isClosed) {
+            if (settings.getClosedAirports && isClosed) {
                 bgcolor = "red";
                 airportSvgs.current = airportSvgs.closed;
-            } else if (appsettings.getHeliports && isHeliport && !isClosed) {
+            } else if (settings.getHeliports && isHeliport && !isClosed) {
                 bgcolor = "white";
                 fgcolor = "black";
                 airportSvgs.current = airportSvgs.heliport;
@@ -1091,7 +1091,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             // get the icons rotating and notify the layer to update
             pirepIconStyle.getImage().setRotation(currentRotation);
             pirepVectorLayer.getSource().changed();
-            
+
             // Tell OpenLayers to draw a new frame immediately on the next tick
             map.render();
         }
@@ -1122,7 +1122,7 @@ document.addEventListener('DOMContentLoaded', async function () {
      */
     map.on('click', async (evt) => {
         let features = [];
-        let htol = isMobile ? appsettings.smallScreenHitTolerance : 1;
+        let htol = isMobile ? settings.smallScreenHitTolerance : 1;
 
         map.forEachFeatureAtPixel(evt.pixel, (feature) => {
             if (feature) {
@@ -1238,16 +1238,16 @@ document.addEventListener('DOMContentLoaded', async function () {
         const skyHeader = `<tr><td class="skyheader colspan="2" style="display:block;width:99%;text-align:center;border:1px solid #000000;">`;
 
         const airport = await getAirportObject(ident);
-        const stationName = airport.name !== undefined ? `${String(airport.name).split("/")[0]}<br>${ident} - ${cat}` :`${ident} - ${cat}`;
+        const stationName = airport.name !== undefined ? `${String(airport.name).split("/")[0]}<br>${ident} - ${cat}` : `${ident} - ${cat}`;
 
         let detailhtml = "";
         let time = (function () {
             const thistime = metar.observation_time ? metar.observation_time : metar.timestamp;
             let outtime = "";
-            if (appsettings.uselocaltime) {
+            if (settings.uselocaltime) {
                 outtime = new Date(thistime).toLocaleString('en-US', { timeZoneName: 'short' });
             } else {
-                outtime =  thistime.slice(0, 16).replace('T', ' ') + '&nbspZULU';
+                outtime = thistime.slice(0, 16).replace('T', ' ') + '&nbspZULU';
             }
             return outtime;
         })();
@@ -1427,14 +1427,14 @@ document.addEventListener('DOMContentLoaded', async function () {
             switch (item) {
                 case "receipt_time":
                     rt = value;
-                    if (appsettings.uselocaltime) {
+                    if (settings.uselocaltime) {
                         rt = getLocalTime(value);
                     }
                     detailhtml += `${rowPrefix}${cellData}${fieldname}: ${cellData}<b>${rt}</b>${rowSuffix}`;
                     break;
                 case "observation_time":
                     ot = value;
-                    if (appsettings.uselocaltime) {
+                    if (settings.uselocaltime) {
                         ot = getLocalTime(value);
                     }
                     detailhtml += `${rowPrefix}${cellData}${fieldname}: ${cellData}<b>${ot}</b>${rowSuffix}`;
@@ -1678,15 +1678,15 @@ document.addEventListener('DOMContentLoaded', async function () {
             let formattedvalue = null;
             switch (rawfieldname) {
                 case "fcst_time_from":
-                    if (appsettings.uselocaltime) {
+                    if (settings.uselocaltime) {
                         formattedValue = new Date(fieldvalue).toLocaleString('en-US', { timeZoneName: 'short' });
                     } else {
                         formattedValue = fieldvalue.slice(0, 16).replace('T', ' ') + '&nbspZULU';
                     }
                     detailhtml = `${rowPrefix}${cellData}Time from: ${cellData}<b>${formattedValue}</b>${rowSuffix}`;
                     break;
-                case "fcst_time_to": 
-                    if (appsettings.uselocaltime) {
+                case "fcst_time_to":
+                    if (settings.uselocaltime) {
                         formattedValue = new Date(fieldvalue).toLocaleString('en-US', { timeZoneName: 'short' });
                     } else {
                         formattedValue = fieldvalue.slice(0, 16).replace('T', ' ') + '&nbspZULU';
@@ -1694,10 +1694,10 @@ document.addEventListener('DOMContentLoaded', async function () {
                     detailhtml = `${rowPrefix}${cellData}Time to: ${cellData}<b>${formattedValue}</b>${rowSuffix}`;
                     break;
                 case "time_becoming":
-                    if (appsettings.uselocaltime) {
+                    if (settings.uselocaltime) {
                         formattedValue = new Date(fieldvalue).toLocaleString('en-US', { timeZoneName: 'short' });
                     } else {
-                        formattedValue = fieldvalue.slice(0, 16).replace('T', ' ') + '&nbspZULU';    
+                        formattedValue = fieldvalue.slice(0, 16).replace('T', ' ') + '&nbspZULU';
                     }
                     detailhtml = `${rowPrefix}${cellData}Becoming: ${cellData}<b>${formattedValue}</b>${rowSuffix}`;
                     break;
@@ -2612,7 +2612,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         skyConditionKeymap.set("PROB", "Probability");
         skyConditionKeymap.set("CB", "Cumulo-Nimbus");
         skyConditionKeymap.set("IMC", "Instrument meteorological conditions"),
-        skyConditionKeymap.set("IMPR", "Improving");
+            skyConditionKeymap.set("IMPR", "Improving");
         skyConditionKeymap.set("INC", "In Clouds");
         skyConditionKeymap.set("INS", "Inches");
         skyConditionKeymap.set("INTER", "Intermittent");
