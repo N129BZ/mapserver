@@ -16,7 +16,6 @@
     "esbuild": "^0.28.2",
     "express": "^4.21.2",
     "fast-xml-parser": "^5.7.2",
-    "favicon": "^0.0.2",
     "http": "^0.0.1-security",
     "json2html": "^0.0.8",
     "mathjs": "^15.2.0",

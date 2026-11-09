@@ -1,5 +1,5 @@
 {
-  "httpport": 8500,
+  "httpport": 8600,
   "wsroute": "/api/chartserver-stream",
   "debug": false,
   "uselocaltime": false,
@@ -23,5 +23,5 @@
     -98.23643,
     30.73659
   ],
-  "overridelastposition": true
+  "overridelastposition": false
 }
