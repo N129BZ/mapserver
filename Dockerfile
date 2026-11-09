@@ -27,6 +27,7 @@ RUN npm install --only=production
 COPY --from=builder /mapserver/dist ./dist
 COPY --from=builder /mapserver/server.js ./
 COPY --from=builder /mapserver/settings.json ./
-
+COPY --from=builder /mapserver/airports.db ./
+COPY --from=builder /mapserver/tiles ./tiles
 EXPOSE 8600
 CMD ["node", "server.js"]

@@ -15,8 +15,6 @@ pids
 *.seed
 *.pid.lock
 
-
-tiles/
 weather/
 
 # package-lock.json
