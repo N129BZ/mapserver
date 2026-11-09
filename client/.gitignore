@@ -1,8 +1,8 @@
 # Ignore node_modules and build output
 node_modules/
 dist/
-package-lock.json
-build.sh
+# package-lock.json
+# build.sh
 
 # Ignore database and other generated files
 Sectional.db
