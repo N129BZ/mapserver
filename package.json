@@ -22,5 +22,9 @@
     "re": "^0.1.4",
     "ws": "^8.18.3",
     "xmlhttprequest": "^1.8.0"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "build-client": "npm --prefix client install && npm --prefix client run build"
   }
 }
