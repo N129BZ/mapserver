@@ -16,7 +16,7 @@ COPY package*.json ./
 RUN npm install --only=production
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/server.js ./
-COPY --from=builder /app/appsettings.json ./
+COPY --from=builder /app/settings.json ./
 # Expose your active port
 EXPOSE 8600
 CMD ["node", "server.js"]

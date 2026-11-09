@@ -2293,10 +2293,10 @@
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = "appsettings.json";
+        a.download = "settings.json";
         a.click();
         URL.revokeObjectURL(url);
-        showToast("Downloaded appsettings.json", "success");
+        showToast("Downloaded settings.json", "success");
       });
 
       document.getElementById("btn-apply-imported-json").addEventListener("click", () => {
