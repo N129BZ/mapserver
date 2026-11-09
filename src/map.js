@@ -610,7 +610,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             extent: extent,
             source: animatedWxTileSource,
             visible: false,
-            zIndex: 12
+            zIndex: 110
         });
         map.addLayer(animatedWxTileLayer);
     }
