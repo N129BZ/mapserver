@@ -1,0 +1,13 @@
+services:
+  chartmaker:
+    image: ghcr.io/n129bz/mapserver:latest
+    container_name: mapserver
+    restart: unless-stopped
+    ports:
+      - "8600:8600" 
+    volumes:
+      - ./tiles:/mapserver/tiles
+      - ./weather:/mapserver/weather
+      - .:/mapserver/config
+    environment:
+      - DOCKER=true
