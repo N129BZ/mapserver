@@ -1,6 +1,5 @@
 
 import express from 'express';
-import Database from 'node:sqlite';
 import cors from 'cors';
 import fs from 'fs/promises';
 import cookieParser from 'cookie-parser';

@@ -5,7 +5,7 @@
   "author": "n129bz <n129bz@outlook.com>",
   "keywords": [],
   "license": "Apache-2.0",
-  "main": "index.js",
+  "main": "server.js",
   "type": "module",
   "dependencies": {
     "cd": "^0.3.3",
