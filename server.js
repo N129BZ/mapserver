@@ -2,6 +2,7 @@
 import express from 'express';
 import cors from 'cors';
 import { readFile } from 'fs/promises';
+import fs from 'node:fs';
 import cookieParser from 'cookie-parser';
 import path from 'node:path';
 import { cwd } from 'node:process';
