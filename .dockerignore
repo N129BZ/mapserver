@@ -4,3 +4,4 @@ dist
 client/dist
 .git
 .vscode
+weather
