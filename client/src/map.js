@@ -23,7 +23,7 @@ import VectorSource from 'ol/source/Vector';
 import Style from 'ol/style/Style';
 import Icon from 'ol/style/Icon';
 import Overlay from 'ol/Overlay';
-import { defaults as defaultControls, ScaleLine } from 'ol/control';
+import { defaults as defaultControls, ScaleLine, defaultInteractions } from 'ol/control';
 import LayerSwitcher from 'ol-layerswitcher';
 import { getAirportsInRadius, decodeRunwaySurface, getAirportObject } from './airportfunctions.js';
 import { getCurrentTafFlightCategoryColors } from './tafparsingutility.js';
@@ -482,8 +482,8 @@ document.addEventListener('DOMContentLoaded', async function () {
             maxZoom: 22,
             visible: true
         }),
-        controls: defaultControls().extend([scaleLine]),
-        interactions: defaultControls({ doubleClickZoom: false })
+        interactions: defaultInteractions({ doubleClickZoom: false }),
+        controls: defaultControls().extend([scaleLine])
     });
     map.addOverlay(popupoverlay);
 
