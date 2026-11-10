@@ -439,7 +439,7 @@ document.addEventListener('DOMContentLoaded', async function () {
      */
     async function checkOnlineStatus() {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 1000); // 3-second timeout
+        const timeoutId = setTimeout(() => controller.abort(), 3000); // 3-second timeout
 
         try {
             const response = await fetch('https://google.com', {
