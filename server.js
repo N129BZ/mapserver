@@ -29,14 +29,6 @@ if (!DBEngine) {
 
 let appdir = cwd();
 
-const COOKIE_SECRET = '9a7b78421d53bebd3d345f548fd7e3384b27df46d4c76385e58233ada5e59f76';
-const clientDist = path.resolve(appdir, "client", "dist");
-const ROOT_PATH = fs.existsSync(clientDist) ? clientDist : path.resolve(appdir, "dist");
-const TILE_PATH = path.resolve(appdir, "tiles");
-const airportdb = new DBEngine(path.resolve(appdir, "airports.db"), { readonly: true });
-const connections = new Map();
-const databaselist = new Map();
-
 /**
  * Utility to see if we are in a docker container
  * @returns boolean
@@ -44,8 +36,8 @@ const databaselist = new Map();
 function isRunningInDocker() {
     let indocker = false;
     try {
-        let r = fs.execSync(`cat /proc/1/cgroup`, { encoding: "utf8" });
-        indocker = (r.search("/docker/") > -1);
+        let r = fs.readFileSync("/proc/1/cgroup", { encoding: "utf8" });
+        indocker = (r.search("/docker/") > -1 || r.search("/containerd/") > -1);
     }
     catch { }
     if (!indocker) {
@@ -58,14 +50,92 @@ function isRunningInDocker() {
     return indocker;
 }
 
-let settingspath = path.join(appdir, "settings.json");
-let isdocker = isRunningInDocker();
-if (isdocker) {
-    const externalConfigDir = path.join(appdir, "config");
-    const externalSettingsPath = path.join(externalConfigDir, "settings.json");
-    if (!fs.existsSync(externalConfigDir)) {
-        fs.mkdirSync(externalConfigDir, { recursive: true });
+/**
+ * Check if a given directory path is backed by an external volume mount
+ * @param {string} dirPath
+ * @returns boolean
+ */
+function isExternalMount(dirPath) {
+    const resolved = path.resolve(dirPath);
+    try {
+        const mountInfo = fs.readFileSync("/proc/self/mountinfo", "utf8");
+        const isMountPoint = mountInfo.split("\n").some((line) => {
+            const fields = line.split(" ");
+            return fields.length >= 5 && fields[4] === resolved;
+        });
+        if (isMountPoint) {
+            return true;
+        }
+    } catch { }
+    try {
+        if (fs.existsSync(resolved) && fs.existsSync(appdir)) {
+            return fs.statSync(resolved).dev !== fs.statSync(appdir).dev;
+        }
+    } catch { }
+    return false;
+}
+
+/**
+ * Ensure a folder exists and resolve between external volume and internal fallback
+ * @param {string} folderName
+ * @param {boolean} indocker
+ * @returns {string} resolved folder path
+ */
+function resolveFolder(folderName, indocker) {
+    const folderPath = path.resolve(appdir, folderName);
+    if (!fs.existsSync(folderPath)) {
+        fs.mkdirSync(folderPath, { recursive: true });
     }
+    if (indocker) {
+        if (isExternalMount(folderPath)) {
+            console.log(`[${folderName}] External volume detected at ${folderPath}`);
+        } else {
+            console.log(`[${folderName}] No external volume detected; using internal folder ${folderPath}`);
+        }
+    }
+    return folderPath;
+}
+
+/**
+ * Resolve tiles folder, falling back to internal bundled tiles if an empty volume is mounted
+ * @param {boolean} indocker
+ * @returns {string} resolved tiles path
+ */
+function resolveTilesFolder(indocker) {
+    const tilePath = resolveFolder("tiles", indocker);
+    const hasTileDbs = (dir) => {
+        try {
+            return fs.readdirSync(dir).some((f) => f.endsWith(".db") || f.endsWith(".mbtiles"));
+        } catch {
+            return false;
+        }
+    };
+
+    if (!hasTileDbs(tilePath)) {
+        const internalTilesPath = path.resolve(appdir, "tiles_internal");
+        if (fs.existsSync(internalTilesPath) && hasTileDbs(internalTilesPath)) {
+            console.log(`[tiles] No databases found in ${tilePath}; falling back to internal tiles at ${internalTilesPath}`);
+            return internalTilesPath;
+        }
+    }
+    return tilePath;
+}
+
+let isdocker = isRunningInDocker();
+
+const COOKIE_SECRET = '9a7b78421d53bebd3d345f548fd7e3384b27df46d4c76385e58233ada5e59f76';
+const clientDist = path.resolve(appdir, "client", "dist");
+const ROOT_PATH = fs.existsSync(clientDist) ? clientDist : path.resolve(appdir, "dist");
+const TILE_PATH = resolveTilesFolder(isdocker);
+const WEATHER_PATH = resolveFolder("weather", isdocker);
+const airportdb = new DBEngine(path.resolve(appdir, "airports.db"), { readonly: true });
+const connections = new Map();
+const databaselist = new Map();
+
+let settingspath = path.join(appdir, "settings.json");
+if (isdocker) {
+    const externalConfigDir = resolveFolder("config", isdocker);
+    const externalSettingsPath = path.join(externalConfigDir, "settings.json");
     if (!fs.existsSync(externalSettingsPath)) {
         fs.copyFileSync(settingspath, externalSettingsPath);
     }
@@ -340,7 +410,7 @@ app.post("/api/settings/edit", async (req, res) => {
     try {
         // req.body contains the parsed JSON object
         const dataToSave = req.body;
-        const filePath = path.join(appdir, 'settings.json');
+        const filePath = settingspath;
 
         await writeFile(filePath, JSON.stringify(dataToSave, null, 2), 'utf8');
 
@@ -594,10 +664,15 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 async function sendWeatherData() {
     const sources = ["metars", "tafs", "aircraftreports"];
     for (const source of sources) {
-        const filePath = path.resolve(appdir, "weather", `${source}.json`);
+        const filePath = path.resolve(WEATHER_PATH, `${source}.json`);
+        if (!fs.existsSync(filePath)) {
+            continue;
+        }
         const jsonData = await getJsonDataFromFile(filePath);
-        const responseData = jsonData.response.data;
-        await sendMessageToClients(JSON.stringify(responseData));
+        const responseData = jsonData?.response?.data;
+        if (responseData) {
+            await sendMessageToClients(JSON.stringify(responseData));
+        }
     }
 }
 
@@ -635,7 +710,7 @@ async function getJsonDataFromFile(filePath) {
 const alwaysArray = [
     'response.data.METAR', // Example matching your METAR array path
     'response.data.TAF',
-    'respomse.data.AviationReport'
+    'response.data.AircraftReport'
 ];
 const xmlParseOptions = {
     ignoreAttributes: false,
@@ -654,9 +729,13 @@ const xmlparser = new XMLParser(xmlParseOptions);
 async function downloadAndExtractXML() {
     const sources = ["metars", "tafs", "aircraftreports"];
 
+    if (!fs.existsSync(WEATHER_PATH)) {
+        fs.mkdirSync(WEATHER_PATH, { recursive: true });
+    }
+
     for (const source of sources) {
         const url = settings.addscurrentwxurl.replace("###", source);
-        const outputTmp = path.resolve(appdir, "weather", `${source}.json.tmp`);
+        const outputTmp = path.resolve(WEATHER_PATH, `${source}.json.tmp`);
         const outputFile = outputTmp.replace(".tmp", "");
 
         if (shouldDownload(outputFile)) {
@@ -697,9 +776,9 @@ async function downloadAndExtractXML() {
                 );
 
                 console.log(`File saved as: ${source}.json.tmp, renaming as ${source}.json`);
-                rename(outputTmp, outputFile);
-                if (connections.length > 0) {
-                    sendWeatherData();
+                await rename(outputTmp, outputFile);
+                if (connections.size > 0) {
+                    await sendWeatherData();
                 }
             } catch (err) {
                 console.error(`Error processing ${source}:`, err.message);
@@ -743,7 +822,7 @@ async function runDownloads() {
     while (true) {
         try {
             await downloadAndExtractXML();
-            if (connections.length > 0) {
+            if (connections.size > 0) {
                 await sendWeatherData();
             }
         } catch (error) {

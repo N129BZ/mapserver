@@ -27,7 +27,10 @@ RUN npm install --only=production
 COPY --from=builder /mapserver/client/dist ./client/dist
 COPY --from=builder /mapserver/server.js ./
 COPY --from=builder /mapserver/settings.json ./
+COPY --from=builder /mapserver/settingsedit.html ./
 COPY --from=builder /mapserver/airports.db ./
 COPY --from=builder /mapserver/tiles ./tiles
+COPY --from=builder /mapserver/tiles ./tiles_internal
+RUN mkdir -p /mapserver/weather /mapserver/tiles /mapserver/config
 EXPOSE 8600
 CMD ["node", "server.js"]
