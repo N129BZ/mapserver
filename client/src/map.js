@@ -482,7 +482,8 @@ document.addEventListener('DOMContentLoaded', async function () {
             maxZoom: 22,
             visible: true
         }),
-        controls: defaultControls().extend([scaleLine])
+        controls: defaultControls().extend([scaleLine]),
+        interactions: defaultControls({ doubleClickZoom: false })
     });
     map.addOverlay(popupoverlay);
 
