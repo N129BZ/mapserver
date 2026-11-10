@@ -27,7 +27,7 @@ if (!DBEngine) {
     throw new Error("This application requires Node.js v24+ with native SQLite support.");
 }
 
-let appdir = cwd();
+let appdir = import.meta.dirname || cwd();
 
 /**
  * Utility to see if we are in a docker container
@@ -127,7 +127,10 @@ const COOKIE_SECRET = '9a7b78421d53bebd3d345f548fd7e3384b27df46d4c76385e58233ada
 const clientDist = path.resolve(appdir, "client", "dist");
 const ROOT_PATH = fs.existsSync(clientDist) ? clientDist : path.resolve(appdir, "dist");
 const TILE_PATH = resolveTilesFolder(isdocker);
-const WEATHER_PATH = resolveFolder("weather", isdocker);
+const WEATHER_PATH = path.resolve(appdir, "weather");
+if (!fs.existsSync(WEATHER_PATH)) {
+    fs.mkdirSync(WEATHER_PATH, { recursive: true });
+}
 const airportdb = new DBEngine(path.resolve(appdir, "airports.db"), { readonly: true });
 const connections = new Map();
 const databaselist = new Map();

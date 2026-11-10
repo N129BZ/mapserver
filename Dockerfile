@@ -31,6 +31,6 @@ COPY --from=builder /mapserver/settingsedit.html ./
 COPY --from=builder /mapserver/airports.db ./
 COPY --from=builder /mapserver/tiles ./tiles
 COPY --from=builder /mapserver/tiles ./tiles_internal
-RUN mkdir -p /mapserver/weather /mapserver/tiles /mapserver/config
+RUN mkdir -p /mapserver/tiles /mapserver/config
 EXPOSE 8600
 CMD ["node", "server.js"]

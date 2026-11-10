@@ -7,7 +7,6 @@ services:
       - "8600:8600" 
     volumes:
       - ./tiles:/mapserver/tiles
-      - ./weather:/mapserver/weather
       - .:/mapserver/config
     environment:
       - DOCKER=true
