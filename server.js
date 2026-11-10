@@ -10,14 +10,12 @@ import { randomUUID } from 'node:crypto';
 import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
 import { atan, exp, pi, pow } from 'mathjs';
-import { execSync } from 'node:child_process';
-import { readdirSync, mkdirSync, statSync, readFileSync, existsSync, createWriteStream } from 'node:fs';
 import { Transform, Readable } from 'node:stream';
 import { rename, writeFile } from 'node:fs/promises';
 import { pipeline } from 'node:stream/promises';
 import { createGunzip } from 'node:zlib';
 import { XMLParser } from 'fast-xml-parser';
-
+         
 //////////////////////////////////////////////////////////////
 // Download link for airport, runway, and frequency csv data:
 //    https://davidmegginson.github.io/ourairports-data/
@@ -32,7 +30,7 @@ let appdir = cwd();
 
 const COOKIE_SECRET = '9a7b78421d53bebd3d345f548fd7e3384b27df46d4c76385e58233ada5e59f76';
 const clientDist = path.resolve(appdir, "client", "dist");
-const ROOT_PATH = existsSync(clientDist) ? clientDist : path.resolve(appdir, "dist");
+const ROOT_PATH = fs.existsSync(clientDist) ? clientDist : path.resolve(appdir, "dist");
 const TILE_PATH = path.resolve(appdir, "tiles");
 const airportdb = new DBEngine(path.resolve(appdir, "airports.db"), { readonly: true });
 const connections = new Map();
@@ -45,12 +43,12 @@ const databaselist = new Map();
 function isRunningInDocker() {
     let indocker = false;
     try {
-        let r = execSync(`cat /proc/1/cgroup`, { encoding: "utf8" });
+        let r = fs.execSync(`cat /proc/1/cgroup`, { encoding: "utf8" });
         indocker = (r.search("/docker/") > -1);
     }
     catch { }
     if (!indocker) {
-        indocker = existsSync("/.dockerenv") || process.env.DOCKER === "true";
+        indocker = fs.existsSync("/.dockerenv") || process.env.DOCKER === "true";
     }
     if (indocker) {
         console.log("Running in docker!");
@@ -64,19 +62,19 @@ let isdocker = isRunningInDocker();
 if (isdocker) {
     const externalConfigDir = path.join(appdir, "config");
     const externalSettingsPath = path.join(externalConfigDir, "settings.json");
-    if (!existsSync(externalConfigDir)) {
-        mkdirSync(externalConfigDir, { recursive: true });
+    if (!fs.existsSync(externalConfigDir)) {
+        fs.mkdirSync(externalConfigDir, { recursive: true });
     }
-    if (!existsSync(externalSettingsPath)) {
-        copyFileSync(settingspath, externalSettingsPath);
+    if (!fs.existsSync(externalSettingsPath)) {
+        fs.copyFileSync(settingspath, externalSettingsPath);
     }
     settingspath = externalSettingsPath;
 }
-const settings = JSON.parse(readFileSync(settingspath, "utf-8"));
+const settings = JSON.parse(fs.readFileSync(settingspath, "utf-8"));
 
 function loadDatabaseList() {
     try {
-        const dbfiles = readdirSync(TILE_PATH);
+        const dbfiles = fs.readdirSync(TILE_PATH);
         dbfiles.forEach((dbname) => {
             if (dbname.endsWith(".db") || dbname.endsWith(".mbtiles")) {
                 var key = dbname.toLowerCase().split(".")[0];
@@ -270,7 +268,7 @@ app.get('/', (req, res) => {
 
 app.get("/api/settings", (req, res) => {
     // give client freshly read settings in case of running edits
-    const clientsettings = JSON.parse(readFileSync(settingspath, 'utf-8'));
+    const clientsettings = JSON.parse(fs.readFileSync(settingspath, 'utf-8'));
     res.json(clientsettings);
 });
 
@@ -686,7 +684,7 @@ async function downloadAndExtractXML() {
 
                 const readableStream = Readable.fromWeb(response.body);
                 const decompressionStream = createGunzip();
-                const fileStream = createWriteStream(outputTmp);
+                const fileStream = fs.createWriteStream(outputTmp);
 
                 console.log(`Downloading and extracting ${source}...`);
 
@@ -715,7 +713,7 @@ function shouldDownload(outputPath) {
         const thresholdMs = settings.wxupdateintervalmsec;
 
         // Get file stats
-        const stats = statSync(outputPath);
+        const stats = fs.statSync(outputPath);
         const fileAgeMs = Date.now() - stats.mtime.getTime();
         if (fileAgeMs > thresholdMs) {
             console.log(`File is ${Math.round(fileAgeMs / 60000)} minutes old. Updating...`);
