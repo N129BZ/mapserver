@@ -1247,7 +1247,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             if (settings.uselocaltime) {
                 outtime = new Date(thistime).toLocaleString('en-US', { timeZoneName: 'short' });
             } else {
-                outtime = thistime.slice(0, 16).replace('T', ' ') + '&nbspZULU';
+                outtime = thistime.slice(0, 16).replace('T', ' ') + '&nbspZ';
             }
             return outtime;
         })();
@@ -1681,7 +1681,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                     if (settings.uselocaltime) {
                         formattedValue = new Date(fieldvalue).toLocaleString('en-US', { timeZoneName: 'short' });
                     } else {
-                        formattedValue = fieldvalue.slice(0, 16).replace('T', ' ') + '&nbspZULU';
+                        formattedValue = fieldvalue.slice(0, 16).replace('T', ' ') + '&nbspZ';
                     }
                     detailhtml = `${rowPrefix}${cellData}Time from: ${cellData}<b>${formattedValue}</b>${rowSuffix}`;
                     break;
@@ -1689,7 +1689,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                     if (settings.uselocaltime) {
                         formattedValue = new Date(fieldvalue).toLocaleString('en-US', { timeZoneName: 'short' });
                     } else {
-                        formattedValue = fieldvalue.slice(0, 16).replace('T', ' ') + '&nbspZULU';
+                        formattedValue = fieldvalue.slice(0, 16).replace('T', ' ') + '&nbspZ';
                     }
                     detailhtml = `${rowPrefix}${cellData}Time to: ${cellData}<b>${formattedValue}</b>${rowSuffix}`;
                     break;
@@ -1697,7 +1697,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                     if (settings.uselocaltime) {
                         formattedValue = new Date(fieldvalue).toLocaleString('en-US', { timeZoneName: 'short' });
                     } else {
-                        formattedValue = fieldvalue.slice(0, 16).replace('T', ' ') + '&nbspZULU';
+                        formattedValue = fieldvalue.slice(0, 16).replace('T', ' ') + '&nbspZ';
                     }
                     detailhtml = `${rowPrefix}${cellData}Becoming: ${cellData}<b>${formattedValue}</b>${rowSuffix}`;
                     break;
@@ -2282,8 +2282,8 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
 
     /**
-     * Get the local machine date/time from the supplied ZULU date
-     * @param {*} zuludate: the ZULU date to be translated 
+     * Get the local machine date/time from the supplied zulu date
+     * @param {*} zuludate: the zulu date to be translated 
      * @returns string: the translated date in standard or daylight time
      */
     function getLocalTime(zuludate) {
