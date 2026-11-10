@@ -9,6 +9,7 @@
                 "<node_internals>/**"
             ],
             "program": "${workspaceFolder}/server.js",
+            "preLaunchTask": "build-client",
             "console":"internalConsole",
             "runtimeExecutable": "node"
         }

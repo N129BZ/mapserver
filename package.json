@@ -25,7 +25,8 @@
   },
   "scripts": {
     "start": "node server.js",
-    "build-client": "npm --prefix client install && npm --prefix client run build",
+    "build-client": "npm --prefix client run build",
+    "install-client": "npm --prefix client install",
     "dev-server": "nodemon server.js",
     "dev-client": "npm --prefix client run dev",
     "dev": "concurrently \"npm run dev-server\" \"npm run dev-client\" --names \"SERVER,CLIENT\" --prefix-colors \"cyan,magenta\""

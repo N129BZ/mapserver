@@ -1,7 +1,7 @@
 
 import express from 'express';
 import cors from 'cors';
-import fs from 'fs/promises';
+import { readFile } from 'fs/promises';
 import cookieParser from 'cookie-parser';
 import path from 'node:path';
 import { cwd } from 'node:process';
@@ -10,7 +10,7 @@ import { randomUUID } from 'node:crypto';
 import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
 import { atan, exp, pi, pow } from 'mathjs';
-import { readdirSync, statSync, readFileSync, createWriteStream } from 'node:fs';
+import { readdirSync, mkdirSync, statSync, readFileSync, existsSync, createWriteStream } from 'node:fs';
 import { Transform, Readable } from 'node:stream';
 import { rename, writeFile } from 'node:fs/promises';
 import { pipeline } from 'node:stream/promises';
@@ -30,8 +30,8 @@ if (!DBEngine) {
 let appdir = cwd();
 
 const COOKIE_SECRET = '9a7b78421d53bebd3d345f548fd7e3384b27df46d4c76385e58233ada5e59f76';
-const settingsPath = path.resolve(appdir, 'settings.json');
-const ROOT_PATH = path.resolve(appdir, "dist");
+const clientDist = path.resolve(appdir, "client", "dist");
+const ROOT_PATH = existsSync(clientDist) ? clientDist : path.resolve(appdir, "dist");
 const TILE_PATH = path.resolve(appdir, "tiles");
 const airportdb = new DBEngine(path.resolve(appdir, "airports.db"), { readonly: true });
 const connections = new Map();
@@ -49,7 +49,7 @@ function isRunningInDocker() {
     }
     catch { }
     if (!indocker) {
-        indocker = fs.existsSync("/.dockerenv") || process.env.DOCKER === "true";
+        indocker = existsSync("/.dockerenv") || process.env.DOCKER === "true";
     }
     if (indocker) {
         console.log("Running in docker!");
@@ -58,20 +58,20 @@ function isRunningInDocker() {
     return indocker;
 }
 
-let isdocker = isRunningInDocker();
 let settingspath = path.join(appdir, "settings.json");
+let isdocker = isRunningInDocker();
 if (isdocker) {
     const externalConfigDir = path.join(appdir, "config");
     const externalSettingsPath = path.join(externalConfigDir, "settings.json");
-    if (!fs.existsSync(externalConfigDir)) {
-        fs.mkdirSync(externalConfigDir, { recursive: true });
+    if (!existsSync(externalConfigDir)) {
+        mkdirSync(externalConfigDir, { recursive: true });
     }
-    if (!fs.existsSync(externalSettingsPath)) {
-        fs.copyFileSync(settingspath, externalSettingsPath);
+    if (!existsSync(externalSettingsPath)) {
+        copyFileSync(settingspath, externalSettingsPath);
     }
     settingspath = externalSettingsPath;
 }
-const settings = JSON.parse(fs.readFileSync(settingspath, "utf-8")).settings;
+const settings = JSON.parse(readFileSync(settingspath, "utf-8"));
 
 function loadDatabaseList() {
     try {
@@ -618,7 +618,7 @@ async function sendMessageToClients(jsonstring) {
  */
 async function getJsonDataFromFile(filePath) {
     try {
-        const fileContent = await fs.readFile(filePath, 'utf8');
+        const fileContent = await readFile(filePath, 'utf8');
         const jsonResponse = JSON.parse(fileContent);
         return jsonResponse;
 

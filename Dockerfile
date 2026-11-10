@@ -24,7 +24,7 @@ COPY package*.json ./
 RUN npm install --only=production
 
 # Aligned paths: copy from /mapserver instead of /app
-COPY --from=builder /mapserver/dist ./dist
+COPY --from=builder /mapserver/client/dist ./client/dist
 COPY --from=builder /mapserver/server.js ./
 COPY --from=builder /mapserver/settings.json ./
 COPY --from=builder /mapserver/airports.db ./
