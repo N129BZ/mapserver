@@ -23,7 +23,8 @@ import VectorSource from 'ol/source/Vector';
 import Style from 'ol/style/Style';
 import Icon from 'ol/style/Icon';
 import Overlay from 'ol/Overlay';
-import { defaults as defaultControls, ScaleLine, defaultInteractions } from 'ol/control';
+import { defaults as defaultControls, ScaleLine } from 'ol/control';
+import { defaults as defaultInteractions } from 'ol/interaction';
 import LayerSwitcher from 'ol-layerswitcher';
 import { getAirportsInRadius, decodeRunwaySurface, getAirportObject } from './airportfunctions.js';
 import { getCurrentTafFlightCategoryColors } from './tafparsingutility.js';
@@ -1213,8 +1214,10 @@ document.addEventListener('DOMContentLoaded', async function () {
      * @param {feature} Feature: the metar feature the user clicked on 
      */
     async function displayMetarPopup(feature) {
+        if (!feature || typeof feature.get !== 'function') return;
         const isValidNumber = (val) => (typeof val === 'number' && !Number.isNaN(val)) ? val : "";
         const metar = feature.get("data");
+        if (!metar) return;
         const rawData = metar.raw_text;
         const ident = metar.station_id;
         const svg = feature.get("svgimage");
@@ -1314,7 +1317,9 @@ document.addEventListener('DOMContentLoaded', async function () {
      * @param {feature} Feature: the taf feature the user clicked on
      */
     async function displayTafPopup(feature) {
+        if (!feature || typeof feature.get !== 'function') return;
         const taf = feature.get("data");
+        if (!taf) return;
         const bgcolor = feature.get("bgcolor");
         const fgcolor = feature.get("fgcolor");
         const category = feature.get("category");
