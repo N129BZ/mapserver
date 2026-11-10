@@ -10,6 +10,7 @@ import { randomUUID } from 'node:crypto';
 import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
 import { atan, exp, pi, pow } from 'mathjs';
+import { execSync } from 'node:child_process';
 import { readdirSync, mkdirSync, statSync, readFileSync, existsSync, createWriteStream } from 'node:fs';
 import { Transform, Readable } from 'node:stream';
 import { rename, writeFile } from 'node:fs/promises';
@@ -269,7 +270,7 @@ app.get('/', (req, res) => {
 
 app.get("/api/settings", (req, res) => {
     // give client freshly read settings in case of running edits
-    const clientsettings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
+    const clientsettings = JSON.parse(readFileSync(settingspath, 'utf-8'));
     res.json(clientsettings);
 });
 
