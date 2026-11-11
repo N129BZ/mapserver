@@ -705,7 +705,7 @@ function loadTile(z, x, y, response, db) {
         const row = stmt.get(z, x, y); // Pass parameters directly
 
         if (!row || !row.tile_data) {
-            response.writeHead(404);
+            response.writeHead(204, { 'Cache-Control': 'public, max-age=86400' });
             response.end();
         } else {
             response.writeHead(200);

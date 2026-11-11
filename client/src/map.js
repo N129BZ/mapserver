@@ -12,6 +12,7 @@ import 'ol-layerswitcher/dist/ol-layerswitcher.css';
 import { Map as OLMap, View } from 'ol';
 import TileLayer from 'ol/layer/Tile';
 import TileWMS from 'ol/source/TileWMS.js';
+import TileState from 'ol/TileState.js';
 import { XYZ } from 'ol/source';
 import OSM from 'ol/source/OSM';
 import { fromLonLat, toLonLat, transformExtent } from 'ol/proj';
@@ -493,9 +494,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     if (internetAvailable) {
         let osmTileLayer = new TileLayer({
-            source: new OSM({
-                onTileLoadError: function (event) { }
-            }),
+            source: new OSM(),
             visible: true,
             type: "none",
             zIndex: 0,
@@ -730,6 +729,55 @@ document.addEventListener('DOMContentLoaded', async function () {
         });
     }
 
+    /**
+     * Normalize MBTiles bounds ("lon1, lat1, lon2, lat2") into EPSG:3857 extent.
+     */
+    function resolveLayerExtent(boundsString, fallbackExtent) {
+        if (!boundsString || typeof boundsString !== 'string') return fallbackExtent;
+        const coords = boundsString.split(',').map((s) => Number(s.trim()));
+        if (coords.length !== 4 || coords.some((n) => !Number.isFinite(n))) {
+            return fallbackExtent;
+        }
+        const minLon = Math.max(-180, Math.min(coords[0], coords[2]));
+        const maxLon = Math.min(180, Math.max(coords[0], coords[2]));
+        const minLat = Math.max(-85, Math.min(coords[1], coords[3]));
+        const maxLat = Math.min(85, Math.max(coords[1], coords[3]));
+        if (minLon >= maxLon || minLat >= maxLat) return fallbackExtent;
+        return transformExtent([minLon, minLat, maxLon, maxLat], 'EPSG:4326', 'EPSG:3857');
+    }
+
+    /**
+     * Treat 204 No Content responses from local MBTiles endpoints as empty tiles.
+     */
+    function mbtilesTileLoadFunction(tile, src) {
+        fetch(src)
+            .then((res) => {
+                if (res.status === 204) {
+                    tile.setState(TileState.EMPTY);
+                    return null;
+                }
+                if (!res.ok) {
+                    tile.setState(TileState.ERROR);
+                    return null;
+                }
+                return res.blob();
+            })
+            .then((blob) => {
+                if (!blob) return;
+                const img = tile.getImage();
+                const objectUrl = URL.createObjectURL(blob);
+                img.addEventListener('load', () => URL.revokeObjectURL(objectUrl), { once: true });
+                img.addEventListener('error', () => {
+                    URL.revokeObjectURL(objectUrl);
+                    tile.setState(TileState.ERROR);
+                }, { once: true });
+                img.src = objectUrl;
+            })
+            .catch(() => {
+                tile.setState(TileState.ERROR);
+            });
+    }
+
     async function loadTileDatabases() {
         try {
             const response = await fetch('/tiles/tilesets');
@@ -769,10 +817,11 @@ document.addEventListener('DOMContentLoaded', async function () {
                         const dburl = URL_GET_TILE.replace("{dbname}", dbname);
                         const parsedMaxZoom = metadata?.maxzoom != null && metadata.maxzoom !== '' ? Number(metadata.maxzoom) : NaN;
                         const parsedMinZoom = metadata?.minzoom != null && metadata.minzoom !== '' ? Number(metadata.minzoom) : NaN;
+                        const layerExtent = resolveLayerExtent(metadata?.bounds, extent);
                         const layer = new TileLayer({
                             source: new XYZ({
-                                onTileLoadError: function (event) { }, // Suppress annoying console 404 errors
                                 url: dburl,
+                                tileLoadFunction: mbtilesTileLoadFunction,
                                 maxZoom: Number.isFinite(parsedMaxZoom) ? parsedMaxZoom : undefined,
                                 minZoom: Number.isFinite(parsedMinZoom) ? parsedMinZoom : undefined,
                                 attributions: metadata && metadata.attribution ? metadata.attribution : undefined,
@@ -782,7 +831,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                             title: title,
                             type: layertype,
                             visible: visible,
-                            extent: extent,
+                            extent: layerExtent,
                             zIndex: zindex,
                             displayInLayerSwitcher: displayInSwitcher
                         });
