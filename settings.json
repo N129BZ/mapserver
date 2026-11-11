@@ -18,7 +18,6 @@
   "getClosedAirports": false,
   "airportsFilter": "US",
   "startupzoom": 13,
-  "useOSMonlinemap": false,
   "defaultsearchradius": 25,
   "defaultposition": [
     -98.23643,
