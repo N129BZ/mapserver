@@ -154,7 +154,7 @@ function loadConfig(filePath) {
     return parsed;
 }
 
-let settingspath = path.join(appdir, "config.yml");
+let configpath = path.join(appdir, "config.yml");
 if (isdocker) {
     const externalConfigDir = resolveFolder("config", isdocker);
     const externalConfigPath = path.join(externalConfigDir, "config.yml");
@@ -165,12 +165,12 @@ if (isdocker) {
             fs.writeFileSync(externalConfigPath, yaml.dump(migrated, { indent: 2 }), "utf-8");
             console.log(`Migrated legacy ${legacySettingsPath} to ${externalConfigPath}`);
         } else {
-            fs.copyFileSync(settingspath, externalConfigPath);
+            fs.copyFileSync(configpath, externalConfigPath);
         }
     }
-    settingspath = externalConfigPath;
+    configpath = externalConfigPath;
 }
-const settings = loadConfig(settingspath);
+const configuration = loadConfig(configpath);
 
 function loadDatabaseList() {
     try {
@@ -315,8 +315,8 @@ app.use((req, res, next) => {
 
         // Seed initial state in database for the new user
         const mapstate = {
-            center: settings.defaultposition,
-            zoom: settings.startupzoom,
+            center: configuration.defaultposition,
+            zoom: configuration.startupzoom,
             rotation: 0,
             layerstates: [],
             radius: 25
@@ -368,7 +368,7 @@ app.get('/', (req, res) => {
 
 app.get("/api/config", (req, res) => {
     // give client freshly read settings in case of running edits
-    const clientsettings = loadConfig(settingspath);
+    const clientsettings = loadConfig(configpath);
     res.json(clientsettings);
 });
 
@@ -481,7 +481,7 @@ app.post("/api/config/edit", async (req, res) => {
     try {
         // req.body contains the parsed JSON object
         const dataToSave = req.body;
-        const filePath = settingspath;
+        const filePath = configpath;
 
         await writeFile(filePath, yaml.dump(dataToSave, { indent: 2 }), 'utf8');
 
@@ -582,11 +582,11 @@ function handleAirportListRequest(req, res) {
             `FROM airports WHERE airports.latitude_deg BETWEEN ${minLat} AND ${maxLat} ` +
             `AND airports.longitude_deg BETWEEN ${minLon} AND ${maxLon} `;
 
-        if (!settings.getHeliports) {
+        if (!configuration.getHeliports) {
             sql += `AND type NOT LIKE '%heliport%' AND UPPER(name) NOT LIKE '%HELIPORT%' `;
         }
 
-        if (!settings.getClosedAirports) {
+        if (!configuration.getClosedAirports) {
             sql += `AND type NOT LIKE '%closed%' AND UPPER(name) NOT LIKE '%CLOSED%'; `;
         }
 
@@ -620,7 +620,7 @@ function handleAirportListRequest(req, res) {
 const envHttpPort = parseInt(process.env.HTTP_PORT, 10);
 const listenPort = Number.isInteger(envHttpPort) && envHttpPort > 0 && envHttpPort <= 65535
     ? envHttpPort
-    : (parseInt(settings.httpport, 10) || 8600);
+    : (parseInt(configuration.httpport, 10) || 8600);
 
 httpServer.listen(listenPort, '0.0.0.0', () => {
     console.log(`Server listening on port ${listenPort}`);
@@ -811,7 +811,7 @@ async function downloadAndExtractXML() {
     }
 
     for (const source of sources) {
-        const url = settings.addscurrentwxurl.replace("###", source);
+        const url = configuration.addscurrentwxurl.replace("###", source);
         const outputTmp = path.resolve(WEATHER_PATH, `${source}.json.tmp`);
         const outputFile = outputTmp.replace(".tmp", "");
 
@@ -869,9 +869,9 @@ let radarSequencePromise = null;
 const inFlightRadarTiles = new Map();
 
 function getRadarConfig() {
-    let cfg = settings;
+    let cfg = configuration;
     try {
-        cfg = loadConfig(settingspath);
+        cfg = loadConfig(configpath);
     } catch { }
     const upstreamUrl = cfg.animatedwxurl || "https://opengeo.ncep.noaa.gov/geoserver/conus/conus_bref_qcd/ows";
     const defaultLayer = upstreamUrl.includes("mesonet.agron.iastate.edu") ? "nexrad-n0r-wmst" : "conus_bref_qcd";
@@ -879,8 +879,8 @@ function getRadarConfig() {
     const fetchMinutes = Number.isFinite(Number(cfg.animatedwxfetchminutes)) && Number(cfg.animatedwxfetchminutes) > 0
         ? Number(cfg.animatedwxfetchminutes)
         : 120;
-    const intervalMinutes = Number.isFinite(Number(cfg.animatedwxupdateintervalminutes)) && Number(cfg.animatedwxupdateintervalminutes) > 0
-        ? Number(cfg.animatedwxupdateintervalminutes)
+    const intervalMinutes = Number.isFinite(Number(cfg.wxupdateintervalminutes)) && Number(cfg.wxupdateintervalminutes) > 0
+        ? Number(cfg.wxupdateintervalminutes)
         : 30;
     return {
         upstreamUrl,
@@ -1148,9 +1148,9 @@ async function getCachedOrFetchRadarTile(query) {
 }
 
 function getWxUpdateIntervalMs() {
-    const mins = Number(settings.wxupdateintervalminutes);
+    const mins = Number(configuration.wxupdateintervalminutes);
     if (Number.isFinite(mins) && mins > 0) return mins * 60 * 1000;
-    const ms = Number(settings.wxupdateintervalmsec);
+    const ms = Number(configuration.wxupdateintervalmsec);
     if (Number.isFinite(ms) && ms > 0) return ms;
     return 600000;
 }
