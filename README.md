@@ -84,7 +84,8 @@ http://localhost:8500/
 ## Main endpoints
 
 - `GET /` — serves the map client
-- `GET /appsettings` — returns configured app settings
+- `GET /api/config` — returns configured app settings
+- `GET /api/config/edit` and `POST /api/config/edit` — configuration editor UI and persistence endpoint (`config.yml`)
 - `GET /databaselist` — lists available databases
 - `GET /airport?id=<identifier>` — airport lookup by identifier
 - `GET /airportlist?...` — airport search/list within map bounds

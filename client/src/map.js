@@ -77,9 +77,9 @@ const URL_SERVER = `${URL_HOST_PROTOCOL}${URL_HOST_BASE}`;
 const URL_GET_TILE = `${URL_SERVER}/tiles/{dbname}/{z}/{x}/{-y}`;
 
 /**
- * Set defaults, updated from server config.yml via /api/settings on connect.
+ * Set defaults, updated from server config.yml via /api/config on connect.
  */
-let settings = "";
+let configuration = "";
 let map = null;
 let socket = null;
 let viewextent = [-180, -85, 180, 85];
@@ -98,14 +98,14 @@ let distanceunit = "";
 const { promise, resolve, reject } = Promise.withResolvers();
 
 document.addEventListener('DOMContentLoaded', async function () {
-    // Fetch settings asynchronously BEFORE anything else inside the DOM load lifecycle
+    // Fetch configuration asynchronously BEFORE anything else inside the DOM load lifecycle
     try {
         const response = await fetch(`${URL_SERVER}/api/config`);
         if (!response.ok) {
             throw new Error(`Server responded with status: ${response.status}`);
         }
-        settings = await response.json();
-        console.log("App settings loaded:", settings);
+        configuration = await response.json();
+        console.log("App configuration loaded:", configuration);
     } catch (error) {
         console.error("CRITICAL CONFIGURATION ERROR:", error);
         document.body.innerHTML = '';
@@ -116,7 +116,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             <p>The application could not load configuration profiles and has been halted.</p>
             <p style="font-family: monospace; background: #fff; padding: 10px; border: 1px solid #ddd; color: #333;">${error.message}</p>`;
         document.body.appendChild(errorContainer);
-        throw new Error("Application halted due to settings loading failure.");
+        throw new Error("Application halted due to configuration loading failure.");
     }
 
     document.addEventListener('onreadystatechange', async (event) => {
@@ -167,7 +167,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     const popup = document.getElementById('popup');
     const popupcontent = document.getElementById('popup-content');
     const radiusSelector = document.getElementById('airport-radius-selector');
-    const deflonlat = settings.defaultposition;
+    const deflonlat = configuration.defaultposition;
     const defaultPosition = fromLonLat(deflonlat);
 
     document.getElementById('radius-header').innerHTML = `Airport Search Radius Selector<hr>` +
@@ -299,10 +299,10 @@ document.addEventListener('DOMContentLoaded', async function () {
 
             if (mapstate.center && mapstate.zoom) {
                 // Check for last position override
-                let searchradius = settings.defaultsearchradius;
-                if (settings.overridelastposition) {
+                let searchradius = configuration.defaultsearchradius;
+                if (configuration.overridelastposition) {
                     view.setCenter(defaultPosition);
-                    view.setZoom(settings.startupzoom);
+                    view.setZoom(configuration.startupzoom);
                 } else {
                     view.setCenter(mapstate.center);
                     view.setZoom(parseFloat(mapstate.zoom));
@@ -317,7 +317,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                 }
             } else {
                 view.setCenter(defaultPosition);
-                view.setZoom(parseFloat(settings.startupzoom));
+                view.setZoom(parseFloat(configuration.startupzoom));
             }
             console.log("Map state restored!");
         } catch (error) {
@@ -343,7 +343,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     let radarSequenceExpiresAt = 0;
     let radarSequencePromise = null;
     let currentRadarTimestamp = null;
-    let frameRate = settings.animatedwxframerateseconds || 3; // frames per second
+    let frameRate = configuration.animatedwxframerateseconds || 3; // frames per second
     const animatecontrol = document.getElementById('wxbuttons');
 
     /*******keymap loading ******/
@@ -480,7 +480,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         target: 'map',
         view: new View({
             center: defaultPosition,
-            zoom: settings.startupzoom,
+            zoom: configuration.startupzoom,
             enableRotation: false,
             minZoom: 1,
             maxZoom: 22,
@@ -596,7 +596,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     let animatedWxTileSource = null;
     let animatedWxTileLayer = null;
     if (internetAvailable) {
-        const defaultWxLayer = settings.animatedwxurl?.includes('mesonet.agron.iastate.edu')
+        const defaultWxLayer = configuration.animatedwxurl?.includes('mesonet.agron.iastate.edu')
             ? 'nexrad-n0r-wmst'
             : 'conus_bref_qcd';
 
@@ -605,7 +605,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             url: `${URL_SERVER}/api/radar/wms`,
             cacheSize: 2048,
             params: {
-                'LAYERS': settings.animatedwxlayer || defaultWxLayer,
+                'LAYERS': configuration.animatedwxlayer || defaultWxLayer,
                 'TILED': true,
                 'TRANSPARENT': true,
             },
@@ -1013,10 +1013,10 @@ document.addEventListener('DOMContentLoaded', async function () {
 
         let detailhtml = `<table style="width: 100%; border-collapse: collapse;">
                             <tr><td colspan="2" class="radius-header" style="text-align:center">Airport Marker Legend</td></tr>`;
-        if (settings.getClosedAirports) {
+        if (configuration.getClosedAirports) {
             detailhtml += closedhtml;
         }
-        if (settings.getHeliports) {
+        if (configuration.getHeliports) {
             detailhtml += helihtml;
         }
         detailhtml += `<tr><td style="padding:6px 8px; border-bottom: 1px solid #e0e0e0;">Towered</td><td style="text-align:right; padding:6px 8px; border-bottom: 1px solid #e0e0e0;">
@@ -1092,10 +1092,10 @@ document.addEventListener('DOMContentLoaded', async function () {
             let bgcolor;
             let fgcolor = "white";
 
-            if (settings.getClosedAirports && isClosed) {
+            if (configuration.getClosedAirports && isClosed) {
                 bgcolor = "red";
                 airportSvgs.current = airportSvgs.closed;
-            } else if (settings.getHeliports && isHeliport && !isClosed) {
+            } else if (configuration.getHeliports && isHeliport && !isClosed) {
                 bgcolor = "white";
                 fgcolor = "black";
                 airportSvgs.current = airportSvgs.heliport;
@@ -1349,7 +1349,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         let time = (function () {
             const thistime = metar.observation_time ? metar.observation_time : metar.timestamp;
             let outtime = "";
-            if (settings.uselocaltime) {
+            if (configuration.uselocaltime) {
                 outtime = new Date(thistime).toLocaleString('en-US', { timeZoneName: 'short' });
             } else {
                 outtime = thistime.slice(0, 16).replace('T', ' ') + '&nbspZ';
@@ -1534,14 +1534,14 @@ document.addEventListener('DOMContentLoaded', async function () {
             switch (item) {
                 case "receipt_time":
                     rt = value;
-                    if (settings.uselocaltime) {
+                    if (configuration.uselocaltime) {
                         rt = getLocalTime(value);
                     }
                     detailhtml += `${rowPrefix}${cellData}${fieldname}: ${cellData}<b>${rt}</b>${rowSuffix}`;
                     break;
                 case "observation_time":
                     ot = value;
-                    if (settings.uselocaltime) {
+                    if (configuration.uselocaltime) {
                         ot = getLocalTime(value);
                     }
                     detailhtml += `${rowPrefix}${cellData}${fieldname}: ${cellData}<b>${ot}</b>${rowSuffix}`;
@@ -1785,7 +1785,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             let formattedvalue = null;
             switch (rawfieldname) {
                 case "fcst_time_from":
-                    if (settings.uselocaltime) {
+                    if (configuration.uselocaltime) {
                         formattedValue = new Date(fieldvalue).toLocaleString('en-US', { timeZoneName: 'short' });
                     } else {
                         formattedValue = fieldvalue.slice(0, 16).replace('T', ' ') + '&nbspZ';
@@ -1793,7 +1793,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                     detailhtml = `${rowPrefix}${cellData}Time from: ${cellData}<b>${formattedValue}</b>${rowSuffix}`;
                     break;
                 case "fcst_time_to":
-                    if (settings.uselocaltime) {
+                    if (configuration.uselocaltime) {
                         formattedValue = new Date(fieldvalue).toLocaleString('en-US', { timeZoneName: 'short' });
                     } else {
                         formattedValue = fieldvalue.slice(0, 16).replace('T', ' ') + '&nbspZ';
@@ -1801,7 +1801,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                     detailhtml = `${rowPrefix}${cellData}Time to: ${cellData}<b>${formattedValue}</b>${rowSuffix}`;
                     break;
                 case "time_becoming":
-                    if (settings.uselocaltime) {
+                    if (configuration.uselocaltime) {
                         formattedValue = new Date(fieldvalue).toLocaleString('en-US', { timeZoneName: 'short' });
                     } else {
                         formattedValue = fieldvalue.slice(0, 16).replace('T', ' ') + '&nbspZ';

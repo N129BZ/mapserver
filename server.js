@@ -473,11 +473,11 @@ app.post("/api/userdata", (req, res) => {
     }
 });
 
-app.get("/api/settings/edit", (req, res) => {
-    res.sendFile(path.resolve(appdir, "settingsedit.html"));
+app.get("/api/config/edit", (req, res) => {
+    res.sendFile(path.resolve(appdir, "configedit.html"));
 });
 
-app.post("/api/settings/edit", async (req, res) => {
+app.post("/api/config/edit", async (req, res) => {
     try {
         // req.body contains the parsed JSON object
         const dataToSave = req.body;

@@ -158,6 +158,3 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
-
-# Legacy local settings backup
-settings.bak

@@ -1139,8 +1139,8 @@
             <span class="brand-badge">v2.4 API</span>
           </h1>
           <div class="brand-sub">
-            Settings: <span class="server-route-tag" id="label-get-route">GET /api/appsettings</span>
-            &bull; Save: <span class="server-route-tag" id="label-save-route">POST /api/settings/edit</span>
+            Settings: <span class="server-route-tag" id="label-get-route">GET /api/config</span>
+            &bull; Save: <span class="server-route-tag" id="label-save-route">POST /api/config/edit</span>
           </div>
         </div>
       </div>
@@ -1762,7 +1762,7 @@
       <span id="bar-status-text" style="color: var(--text-muted); font-size: 0.8rem;">Ready</span>
     </div>
     <div style="display: flex; align-items: center; gap: 8px;">
-      <button type="button" class="btn btn-outline" id="btn-reload-server" title="Reload fresh settings from GET /api/appsettings">
+      <button type="button" class="btn btn-outline" id="btn-reload-server" title="Reload fresh settings from GET /api/config">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polyline points="23 4 23 10 17 10"></polyline>
           <polyline points="1 20 1 14 7 14"></polyline>
@@ -1802,7 +1802,7 @@
     </div>
     <div class="drawer-body">
       <p style="font-size: 0.8rem; color: var(--text-muted);">
-        Real-time serialization matching server endpoint <code>POST /api/settings/edit</code>. You can copy, export, or paste custom configuration JSON.
+        Real-time serialization matching server endpoint <code>POST /api/config/edit</code>. You can copy, export, or paste custom configuration JSON.
       </p>
 
       <div style="display: flex; gap: 8px; flex-wrap: wrap;">
@@ -1812,8 +1812,8 @@
         <button type="button" class="btn btn-secondary" style="font-size: 0.75rem;" id="btn-download-json">
           💾 Download config.json
         </button>
-        <button type="button" class="btn btn-outline" style="font-size: 0.75rem;" id="btn-drawer-reload-server" title="Re-fetch /api/appsettings">
-          ↻ Re-fetch /api/appsettings
+        <button type="button" class="btn btn-outline" style="font-size: 0.75rem;" id="btn-drawer-reload-server" title="Re-fetch /api/config">
+          ↻ Re-fetch /api/config
         </button>
       </div>
 
@@ -1842,13 +1842,13 @@
   <script>
     /**
      * Map Server / Client Settings Editor
-     * Dynamic configuration loaded from: GET /api/appsettings
-     * Persisted to: POST /api/settings/edit
+     * Dynamic configuration loaded from: GET /api/config
+     * Persisted to: POST /api/config/edit
      */
-    const GET_SETTINGS_URL = "/api/appsettings";
-    const SAVE_SETTINGS_URL = "/api/settings/edit";
+    const GET_SETTINGS_URL = "/api/config";
+    const SAVE_SETTINGS_URL = "/api/config/edit";
 
-    // Fallback baseline defaults (only used if /api/appsettings is unreachable)
+    // Fallback baseline defaults (only used if /api/config is unreachable)
     const FALLBACK_CONFIG = {
       "httpport": 8500,
       "wsroute": "/api/chartserver-stream",
@@ -1964,11 +1964,11 @@
     }
 
     /**
-     * Fetch settings dynamically from server route: GET /api/appsettings
+     * Fetch settings dynamically from server route: GET /api/config
      */
     async function fetchServerSettings(isManualReload = false) {
       try {
-        setSyncStatus("Fetching /api/appsettings...", "info");
+        setSyncStatus("Fetching /api/config...", "info");
         const res = await fetch(GET_SETTINGS_URL, {
           headers: { "Accept": "application/json" },
           cache: "no-store"
@@ -1987,8 +1987,8 @@
         renderForm(currentState);
         updateLiveJsonDisplay();
         checkDirtyState();
-        setSyncStatus("Synced: /api/appsettings", "success");
-        showToast(isManualReload ? "Refreshed settings from /api/appsettings" : "Loaded settings from /api/appsettings", "success");
+        setSyncStatus("Synced: /api/config", "success");
+        showToast(isManualReload ? "Refreshed settings from /api/config" : "Loaded settings from /api/config", "success");
       } catch (err) {
         console.warn(`Could not fetch from ${GET_SETTINGS_URL}:`, err.message);
         // Fallback to local storage or defaults
@@ -2515,7 +2515,7 @@
         saveBtn.classList.add("btn-primary");
       } else {
         syncPill.className = "status-badge";
-        syncStatusText.textContent = isOfflineOrMock ? "Local Mode" : "Synced: /api/appsettings";
+        syncStatusText.textContent = isOfflineOrMock ? "Local Mode" : "Synced: /api/config";
         barStatusDot.style.background = "var(--accent-emerald)";
         barStatusDot.style.boxShadow = "0 0 8px var(--accent-emerald)";
         barStatusText.textContent = "All changes synchronized";
@@ -2523,7 +2523,7 @@
     }
 
     /**
-     * Save settings to server route: POST /api/settings/edit
+     * Save settings to server route: POST /api/config/edit
      */
     async function saveSettingsToServer() {
       if (isSaving) return;
@@ -2554,12 +2554,12 @@
           rawServerConfig = JSON.parse(JSON.stringify(payload));
           localStorage.setItem("mapserver_settings", JSON.stringify(payload));
           checkDirtyState();
-          showToast("Settings successfully saved to /api/settings/edit!", "success");
+          showToast("Settings successfully saved to /api/config/edit!", "success");
         } else {
           throw new Error(`Server returned status HTTP ${res.status}`);
         }
       } catch (err) {
-        console.warn("POST to /api/settings/edit failed:", err);
+        console.warn("POST to /api/config/edit failed:", err);
         // Persist locally in standalone mode
         localStorage.setItem("mapserver_settings", JSON.stringify(payload));
         initialLoadedState = JSON.parse(JSON.stringify(currentState));
