@@ -47,7 +47,7 @@ The main runtime settings live in `settings.json`:
 
 ```partial json settings example showing defaults
 {
-  "httpport": 8600,
+  "httpport": 8500,
   "wsroute": "/api/chartserver-stream",
   "startupzoom": 9,
   "defaultposition": { "lon": -87.6298, "lat": 41.8781 }
@@ -60,7 +60,7 @@ Key settings include:
 - `wsroute` — WebSocket endpoint path
 - `startupzoom` — default map zoom
 - `defaultposition` — default map center
-- `wxupdateintervalminutes` — period for weather refresh checks
+- `wxupdateintervalmsec` — period for weather refresh checks
 
 ## Running the server
 
@@ -76,13 +76,11 @@ Or run directly:
 node server.js
 ```
 
-The server listens on `0.0.0.0:8600` by default, using the `httpport` configured in your local `settings.json`:
+The server listens on `0.0.0.0:8500` by default but will use any port you designate:
 
 ```text
-http://localhost:8600/
+http://localhost:8500/
 ```
-
-When running with Docker Compose on Linux, `docker-compose.yml` uses `network_mode: host` and mounts your local directory to `/mapserver/config`, so changing `"httpport"` in local `settings.json` and restarting the container (`docker compose restart`) automatically exposes the server and web UI on that port. (On macOS/Windows Docker Desktop, ensure Docker Desktop's Host Networking option is enabled.)
 
 ## Main endpoints
 

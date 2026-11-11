@@ -32,5 +32,5 @@ COPY --from=builder /mapserver/airports.db ./
 COPY --from=builder /mapserver/tiles ./tiles
 COPY --from=builder /mapserver/tiles ./tiles_internal
 RUN mkdir -p /mapserver/tiles /mapserver/config
-# Listening port is configured dynamically at runtime via settings.json ("httpport")
+EXPOSE 8600
 CMD ["node", "server.js"]

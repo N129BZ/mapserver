@@ -3,8 +3,8 @@ services:
     image: ghcr.io/n129bz/mapserver:latest
     container_name: mapserver
     restart: unless-stopped
-    # Share host network stack on Linux so server.js binds directly to local settings.json "httpport"
-    network_mode: host
+    ports:
+      - "8600:8600" 
     volumes:
       - ./tiles:/mapserver/tiles
       - .:/mapserver/config
