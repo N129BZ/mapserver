@@ -2065,9 +2065,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             metarFeature.changed();
             metarVectorLayer.changed();
         }
-        catch (error) {
-            console.log(error.message);
-        }
+        finally {}
     }
 
     /**
@@ -2129,9 +2127,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             tafFeature.changed();
             tafVectorLayer.changed();
         }
-        catch (error) {
-            console.log(error.message);
-        }
+        finally {}
     }
 
     /**
@@ -2204,9 +2200,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             pirepVectorSource.addFeature(pirepFeature);
             pirepVectorSource.changed();
         }
-        catch (err) {
-            console.error(`Error in processPirep: ${err}`);
-        }
+        finally {}
     }
 
     /**
