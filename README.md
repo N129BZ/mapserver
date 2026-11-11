@@ -11,8 +11,9 @@ This project contains the server and client sides for an express server with a f
 - downloads current weather data from https://aviationweather.gov/
 - downloads include current Metars, TAFs, and Pireps 
 - download update intervals are controlled by user settings
-- streams weather METAR/TAF/aircraft report data to client over WebSocket    
-- provides airport lookup endpoints using the bundled world-wide airport database
+- streams weather METAR/TAF/aircraft report data to client over WebSocket
+- streams live NOAA weather radar from a starting point x minutes ago until present minute  
+- provides airport lookup endpoints using a bundled world-wide airport database
 - stores per-user map state in a local SQLite database using signed cookies
 
 It is used for browser-based aviation charts, weather and meteorological overlays.
