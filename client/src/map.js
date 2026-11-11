@@ -462,7 +462,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         }
     }
 
-    const internetAvailable = await checkOnlineStatus();
+    let internetAvailable = await checkOnlineStatus();
 
     /**
      * The scale of miles shown on lower left corner of map
@@ -492,15 +492,120 @@ document.addEventListener('DOMContentLoaded', async function () {
     });
     map.addOverlay(popupoverlay);
 
-    if (internetAvailable) {
-        let osmTileLayer = new TileLayer({
-            source: new OSM(),
-            visible: true,
-            type: "none",
-            zIndex: 0,
-        });
-        map.addLayer(osmTileLayer);
+    const onlineOsmSource = new OSM();
+    const onlineOsmLayer = new TileLayer({
+        source: onlineOsmSource,
+        visible: internetAvailable,
+        type: "none",
+        zIndex: 0,
+    });
+    map.addLayer(onlineOsmLayer);
+
+    let offlineOsmLayer = null;
+    let consecutiveOsmTileErrors = 0;
+    let connectivityTimerId = null;
+    let connectivityProbePromise = null;
+    let onConnectivityChanged = null;
+    const OSM_TILE_ERROR_THRESHOLD = 3;
+    const ONLINE_PROBE_INTERVAL_MS = 60000;
+    const OFFLINE_RECOVERY_INTERVAL_MS = 30000;
+
+    /**
+     * Keep online OSM and local osm.mbtiles base layers synchronized with connectivity state.
+     */
+    function syncBaseMapVisibility() {
+        const useOnline = internetAvailable || !offlineOsmLayer;
+        onlineOsmLayer.setVisible(useOnline);
+        if (offlineOsmLayer) {
+            offlineOsmLayer.setVisible(!useOnline);
+        }
     }
+
+    /**
+     * Schedule the next lightweight connectivity probe while the tab is visible.
+     */
+    function scheduleConnectivityCheck() {
+        if (connectivityTimerId !== null) {
+            clearTimeout(connectivityTimerId);
+            connectivityTimerId = null;
+        }
+        if (document.visibilityState !== 'visible') {
+            return;
+        }
+        const delayMs = internetAvailable ? ONLINE_PROBE_INTERVAL_MS : OFFLINE_RECOVERY_INTERVAL_MS;
+        connectivityTimerId = window.setTimeout(() => {
+            connectivityTimerId = null;
+            if (document.visibilityState === 'visible') {
+                probeAndSyncConnectivity();
+            }
+        }, delayMs);
+    }
+
+    /**
+     * Switch the active base map between live OSM and the local osm.mbtiles database.
+     * @param {boolean} online
+     */
+    function setBaseMapOnline(online) {
+        const wasOnline = internetAvailable;
+        internetAvailable = online;
+        if (online) {
+            consecutiveOsmTileErrors = 0;
+            if (!wasOnline) {
+                onlineOsmSource.refresh();
+            }
+        }
+        syncBaseMapVisibility();
+        scheduleConnectivityCheck();
+        if (onConnectivityChanged && online !== wasOnline) {
+            onConnectivityChanged(online);
+        }
+    }
+
+    /**
+     * Deduplicate connectivity checks triggered by timers, browser events, or visibility changes.
+     * @returns {Promise<boolean>}
+     */
+    async function probeAndSyncConnectivity() {
+        if (connectivityProbePromise) {
+            return connectivityProbePromise;
+        }
+        connectivityProbePromise = (async () => {
+            const online = await checkOnlineStatus();
+            setBaseMapOnline(online);
+            return online;
+        })().finally(() => {
+            connectivityProbePromise = null;
+        });
+        return connectivityProbePromise;
+    }
+
+    onlineOsmSource.on('tileloadend', () => {
+        consecutiveOsmTileErrors = 0;
+    });
+
+    onlineOsmSource.on('tileloaderror', () => {
+        if (!internetAvailable || !onlineOsmLayer.getVisible()) {
+            return;
+        }
+        consecutiveOsmTileErrors += 1;
+        if (consecutiveOsmTileErrors >= OSM_TILE_ERROR_THRESHOLD) {
+            setBaseMapOnline(false);
+        }
+    });
+
+    window.addEventListener('offline', () => setBaseMapOnline(false));
+    window.addEventListener('online', () => {
+        probeAndSyncConnectivity();
+    });
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            probeAndSyncConnectivity();
+        } else if (connectivityTimerId !== null) {
+            clearTimeout(connectivityTimerId);
+            connectivityTimerId = null;
+        }
+    });
+    scheduleConnectivityCheck();
     const metarVectorSource = new VectorSource({});
     const metarVectorLayer = new VectorLayer({
         source: metarVectorSource,
@@ -729,6 +834,15 @@ document.addEventListener('DOMContentLoaded', async function () {
         });
     }
 
+    onConnectivityChanged = (online) => {
+        if (!animatedWxTileLayer) return;
+        if (online && animatedWxTileLayer.getVisible()) {
+            playWeatherRadar();
+        } else if (!online) {
+            stopWeatherRadar();
+        }
+    };
+
     /**
      * Normalize MBTiles bounds ("lon1, lat1, lon2, lat2") into EPSG:3857 extent.
      */
@@ -789,53 +903,50 @@ document.addEventListener('DOMContentLoaded', async function () {
                 const entries = Object.entries(dblist).reverse();
                 for (const [dbname, metadata] of entries) {
                     const fixdbname = dbname.replace("_", " ")
-                    let zOrder = 10;
                     let title = fixdbname;
                     let layertype = "overlay";
                     let visible = false;
                     let displayInSwitcher = true;
                     let zindex = title.toLowerCase().search(/terminal/i) > -1 ? 90 : 80;
-                    let createLayer = true;
+                    const isOfflineOsm = metadata?.name === "OSM Low Detail" || dbname === "osm";
 
                     if (metadata.description) {
                         title = metadata.description.replace("_", " ");
                     }
 
-                    if (metadata.name === "OSM Low Detail") {
-                        if (!internetAvailable) {
-                            title = "";
-                            layertype = "base";
-                            zindex = 0;
-                            visible = true;
-                            displayInSwitcher = false;
-                        } else {
-                            createLayer = false;
-                        }
+                    if (isOfflineOsm) {
+                        title = "";
+                        layertype = "base";
+                        zindex = 0;
+                        visible = !internetAvailable;
+                        displayInSwitcher = false;
                     }
 
-                    if (createLayer) {
-                        const dburl = URL_GET_TILE.replace("{dbname}", dbname);
-                        const parsedMaxZoom = metadata?.maxzoom != null && metadata.maxzoom !== '' ? Number(metadata.maxzoom) : NaN;
-                        const parsedMinZoom = metadata?.minzoom != null && metadata.minzoom !== '' ? Number(metadata.minzoom) : NaN;
-                        const layerExtent = resolveLayerExtent(metadata?.bounds, extent);
-                        const layer = new TileLayer({
-                            source: new XYZ({
-                                url: dburl,
-                                tileLoadFunction: mbtilesTileLoadFunction,
-                                maxZoom: Number.isFinite(parsedMaxZoom) ? parsedMaxZoom : undefined,
-                                minZoom: Number.isFinite(parsedMinZoom) ? parsedMinZoom : undefined,
-                                attributions: metadata && metadata.attribution ? metadata.attribution : undefined,
-                                attributionsCollapsible: false,
-                            }),
-                            name: fixdbname,
-                            title: title,
-                            type: layertype,
-                            visible: visible,
-                            extent: layerExtent,
-                            zIndex: zindex,
-                            displayInLayerSwitcher: displayInSwitcher
-                        });
-                        map.addLayer(layer);
+                    const dburl = URL_GET_TILE.replace("{dbname}", dbname);
+                    const parsedMaxZoom = metadata?.maxzoom != null && metadata.maxzoom !== '' ? Number(metadata.maxzoom) : NaN;
+                    const parsedMinZoom = metadata?.minzoom != null && metadata.minzoom !== '' ? Number(metadata.minzoom) : NaN;
+                    const layerExtent = resolveLayerExtent(metadata?.bounds, extent);
+                    const layer = new TileLayer({
+                        source: new XYZ({
+                            url: dburl,
+                            tileLoadFunction: mbtilesTileLoadFunction,
+                            maxZoom: Number.isFinite(parsedMaxZoom) ? parsedMaxZoom : undefined,
+                            minZoom: Number.isFinite(parsedMinZoom) ? parsedMinZoom : undefined,
+                            attributions: metadata && metadata.attribution ? metadata.attribution : undefined,
+                            attributionsCollapsible: false,
+                        }),
+                        name: fixdbname,
+                        title: title,
+                        type: layertype,
+                        visible: visible,
+                        extent: layerExtent,
+                        zIndex: zindex,
+                        displayInLayerSwitcher: displayInSwitcher
+                    });
+                    map.addLayer(layer);
+                    if (isOfflineOsm) {
+                        offlineOsmLayer = layer;
+                        syncBaseMapVisibility();
                     }
                 }
             }
