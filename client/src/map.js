@@ -502,9 +502,9 @@ document.addEventListener('DOMContentLoaded', async function () {
         });
         map.addLayer(osmTileLayer);
     }
-
+    const metarVectorSource = new VectorSource({});
     const metarVectorLayer = new VectorLayer({
-        source: new VectorSource(),
+        source: metarVectorSource,
         title: "Metars",
         name: "metars",
         visible: false,
@@ -527,8 +527,9 @@ document.addEventListener('DOMContentLoaded', async function () {
         }
     })
 
+    const tafVectorSource = new VectorSource({});
     const tafVectorLayer = new VectorLayer({
-        source: new VectorSource(),
+        source: tafVectorSource,
         title: "TAFs",
         name: "tafs",
         visible: false,
@@ -564,9 +565,10 @@ document.addEventListener('DOMContentLoaded', async function () {
     });
     map.addLayer(pirepVectorLayer);
 
+    const airportVectorSource = new VectorSource({});
     const airportVectorLayer = new VectorLayer({
         title: 'Airports',
-        source: new VectorSource(),
+        source: airportVectorSource,
         zIndex: 99,
         name: "airports",
         visible: false,
@@ -2048,22 +2050,30 @@ document.addEventListener('DOMContentLoaded', async function () {
                 scale: getScaleSize()
             });
 
-            const metarFeature = new Feature({
-                ident: metar.station_id,
-                id: metar.station_id,
-                data: metar,
-                datatype: "METAR",
-                geometry: new Point(fromLonLat([metar.longitude, metar.latitude])),
-                svgimage: popupSvg
-            });
+            const id = metar.station_id;
+            if (id !== null && id !== undefined) {
+                const existingFeature = metarVectorSource.getFeatureById(id);
+                if (existingFeature) {
+                    metarVectorSource.removeFeature(existingFeature);
+                }
+                const metarFeature = new Feature({
+                    ident: metar.station_id,
+                    id: metar.station_id,
+                    data: metar,
+                    datatype: "METAR",
+                    geometry: new Point(fromLonLat([metar.longitude, metar.latitude])),
+                    svgimage: popupSvg
+                });
 
-            metarFeature.setStyle(new Style({
-                image: metarmarker
-            }));
+                metarFeature.setStyle(new Style({
+                    image: metarmarker
+                }));
 
-            metarVectorLayer.getSource().addFeature(metarFeature);
-            metarFeature.changed();
-            metarVectorLayer.changed();
+                metarVectorSource.addFeature(metarFeature);
+                metarFeature.changed();
+                metarVectorSource.changed();
+                metarVectorLayer.changed();
+            }
         }
         finally {}
     }
@@ -2102,30 +2112,37 @@ document.addEventListener('DOMContentLoaded', async function () {
         fill-opacity:1;stroke-width:.357233">TAF</tspan></text></g></svg>`
 
         try {
-            const tafFeature = new Feature({
-                ident: taf.station_id,
-                id: taf.station_id,
-                data: taf,
-                bgcolor: bgcolor,
-                fgcolor: fgcolor,
-                category: category,
-                datatype: "TAF",
-                geometry: new Point(fromLonLat([taf.longitude, taf.latitude]))
-            });
-            tafFeature.setStyle(new Style({
-                image: new Icon({
-                    crossOrigin: 'anonymous',
-                    src: `data:image/svg+xml;utf8,${encodeURIComponent(svgimg)}`,
-                    offset: [0, 0],
-                    opacity: 1,
-                    size: [157.5, 112.5],
-                    scale: .2
-                })
-            }));
+            const id = taf.station_id ? taf.station_id : undefined;
+            if (id !== null && id !== undefined) {
+                const existingFeature = tafVectorSource.getFeatureById(id);
+                if (existingFeature) {
+                    tafVectorSource.removeFeature(existingFeature);
+                }
+                const tafFeature = new Feature({
+                    ident: taf.station_id,
+                    id: taf.station_id,
+                    data: taf,
+                    bgcolor: bgcolor,
+                    fgcolor: fgcolor,
+                    category: category,
+                    datatype: "TAF",
+                    geometry: new Point(fromLonLat([taf.longitude, taf.latitude]))
+                });
+                tafFeature.setStyle(new Style({
+                    image: new Icon({
+                        crossOrigin: 'anonymous',
+                        src: `data:image/svg+xml;utf8,${encodeURIComponent(svgimg)}`,
+                        offset: [0, 0],
+                        opacity: 1,
+                        size: [157.5, 112.5],
+                        scale: .2
+                    })
+                }));
 
-            tafVectorLayer.getSource().addFeature(tafFeature)
-            tafFeature.changed();
-            tafVectorLayer.changed();
+                tafVectorSource.addFeature(tafFeature)
+                tafVectorSource.changed();
+                tafVectorLayer.changed();
+            }
         }
         finally {}
     }
@@ -2183,22 +2200,25 @@ document.addEventListener('DOMContentLoaded', async function () {
         try {
             // if there is already a report from this aircraft, remove it before adding a new one
             const id = pirep.aircraft_ref ? pirep.aircraft_ref : pirep.station_id;
-            const existingFeature = pirepVectorSource.getFeatureById(id);
-            if (existingFeature) {
-                pirepVectorSource.removeFeature(existingFeature);
+            if (id !== null && id !== undefined) {
+                const existingFeature = pirepVectorSource.getFeatureById(id);
+                if (existingFeature) {
+                    pirepVectorSource.removeFeature(existingFeature);
+                }
+                const pirepFeature = new Feature({
+                    ident: id,
+                    id: id,
+                    data: pirep,
+                    datatype: "PIREP",
+                    geometry: new Point(fromLonLat([pirep.longitude, pirep.latitude])),
+                    zIndex: 4800
+                });
+                pirepFeature.setId(id);
+                pirepFeature.setStyle(pirepIconStyle);
+                pirepVectorSource.addFeature(pirepFeature);
+                pirepVectorSource.changed();
+                pirepVectorLayer.changed();
             }
-            const pirepFeature = new Feature({
-                ident: id,
-                id: id,
-                data: pirep,
-                datatype: "PIREP",
-                geometry: new Point(fromLonLat([pirep.longitude, pirep.latitude])),
-                zIndex: 4800
-            });
-            pirepFeature.setId(id);
-            pirepFeature.setStyle(pirepIconStyle);
-            pirepVectorSource.addFeature(pirepFeature);
-            pirepVectorSource.changed();
         }
         finally {}
     }
