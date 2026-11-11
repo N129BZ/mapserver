@@ -1,5 +1,5 @@
 services:
-  chartmaker:
+  mapserver:
     image: ghcr.io/n129bz/mapserver:latest
     container_name: mapserver
     restart: unless-stopped
