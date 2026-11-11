@@ -26,7 +26,7 @@ RUN npm install --only=production
 # Aligned paths: copy from /mapserver instead of /app
 COPY --from=builder /mapserver/client/dist ./client/dist
 COPY --from=builder /mapserver/server.js ./
-COPY --from=builder /mapserver/settings.json ./
+COPY --from=builder /mapserver/config.yml ./
 COPY --from=builder /mapserver/settingsedit.html ./
 COPY --from=builder /mapserver/airports.db ./
 COPY --from=builder /mapserver/tiles ./tiles

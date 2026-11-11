@@ -17,6 +17,7 @@
     "express": "^4.21.2",
     "fast-xml-parser": "^5.7.2",
     "http": "^0.0.1-security",
+    "js-yaml": "^5.5.0",
     "json2html": "^0.0.8",
     "mathjs": "^15.2.0",
     "re": "^0.1.4",

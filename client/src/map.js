@@ -77,8 +77,7 @@ const URL_SERVER = `${URL_HOST_PROTOCOL}${URL_HOST_BASE}`;
 const URL_GET_TILE = `${URL_SERVER}/tiles/{dbname}/{z}/{x}/{-y}`;
 
 /**
- * Set appsettings to default values, 
- * will be updated by server on connect.
+ * Set defaults, updated from server config.yml via /api/settings on connect.
  */
 let settings = "";
 let map = null;
@@ -101,7 +100,7 @@ const { promise, resolve, reject } = Promise.withResolvers();
 document.addEventListener('DOMContentLoaded', async function () {
     // Fetch settings asynchronously BEFORE anything else inside the DOM load lifecycle
     try {
-        const response = await fetch(`${URL_SERVER}/api/settings`);
+        const response = await fetch(`${URL_SERVER}/api/config`);
         if (!response.ok) {
             throw new Error(`Server responded with status: ${response.status}`);
         }
@@ -340,7 +339,7 @@ document.addEventListener('DOMContentLoaded', async function () {
      */
     let animationId = null;
     let startDate = getTimeMinutesAgo(settings.animatedwxfetchminutes);
-    let frameRate = 1.0; // frames per second
+    let frameRate = settings.animatedwxframerateseconds; // frames per second
     const animatecontrol = document.getElementById('wxbuttons');
 
     /*******keymap loading ******/
@@ -367,7 +366,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             console.log("WebSocket already open or connecting. Skipping.");
             return;
         }
-        const URL_WEBSOCKET = `${URL_SERVER}${settings.wsroute}`;
+        const URL_WEBSOCKET = `${URL_SERVER}/api/chartserver-stream`;
         //console.log(URL_WEBSOCKET);
         socket = new WebSocket(URL_WEBSOCKET);
         socket.onmessage = async (evt) => {
@@ -774,6 +773,18 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     // Keep the 3 weather layers (METARs, TAFs, PIREPs) mutually exclusive in LayerSwitcher
     const weatherLayers = [metarVectorLayer, tafVectorLayer, pirepVectorLayer];
+    const weatherLayerTitles = new Set(weatherLayers.map((layer) => layer.get('title')));
+    function markWeatherRadioInputs() {
+        for (const li of layerSwitcher.panel.querySelectorAll('li.layer')) {
+            const label = li.querySelector('label');
+            const input = li.querySelector('input');
+            if (label && input && weatherLayerTitles.has(label.textContent.trim())) {
+                input.classList.add('weather-radio-input');
+            }
+        }
+    }
+    layerSwitcher.panel.addEventListener('rendercomplete', markWeatherRadioInputs);
+    markWeatherRadioInputs();
     for (const activeLayer of weatherLayers) {
         activeLayer.on('change:visible', () => {
             if (!activeLayer.getVisible()) return;

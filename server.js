@@ -16,6 +16,7 @@ import { rename, writeFile } from 'node:fs/promises';
 import { pipeline } from 'node:stream/promises';
 import { createGunzip } from 'node:zlib';
 import { XMLParser } from 'fast-xml-parser';
+import * as yaml from 'js-yaml';
          
 //////////////////////////////////////////////////////////////
 // Download link for airport, runway, and frequency csv data:
@@ -135,16 +136,37 @@ const airportdb = new DBEngine(path.resolve(appdir, "airports.db"), { readonly: 
 const connections = new Map();
 const databaselist = new Map();
 
-let settingspath = path.join(appdir, "settings.json");
+/**
+ * Parse YAML config file into a settings object.
+ * @param {string} filePath
+ * @returns {object}
+ */
+function loadConfig(filePath) {
+    const raw = fs.readFileSync(filePath, "utf-8");
+    const parsed = yaml.load(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        throw new Error(`Invalid configuration structure in ${filePath}`);
+    }
+    return parsed;
+}
+
+let settingspath = path.join(appdir, "config.yml");
 if (isdocker) {
     const externalConfigDir = resolveFolder("config", isdocker);
-    const externalSettingsPath = path.join(externalConfigDir, "settings.json");
-    if (!fs.existsSync(externalSettingsPath)) {
-        fs.copyFileSync(settingspath, externalSettingsPath);
+    const externalConfigPath = path.join(externalConfigDir, "config.yml");
+    if (!fs.existsSync(externalConfigPath)) {
+        const legacySettingsPath = path.join(externalConfigDir, "settings.json");
+        if (fs.existsSync(legacySettingsPath)) {
+            const migrated = JSON.parse(fs.readFileSync(legacySettingsPath, "utf-8"));
+            fs.writeFileSync(externalConfigPath, yaml.dump(migrated, { indent: 2 }), "utf-8");
+            console.log(`Migrated legacy ${legacySettingsPath} to ${externalConfigPath}`);
+        } else {
+            fs.copyFileSync(settingspath, externalConfigPath);
+        }
     }
-    settingspath = externalSettingsPath;
+    settingspath = externalConfigPath;
 }
-const settings = JSON.parse(fs.readFileSync(settingspath, "utf-8"));
+const settings = loadConfig(settingspath);
 
 function loadDatabaseList() {
     try {
@@ -238,7 +260,7 @@ const wss = new WebSocketServer({ noServer: true });
             const { pathname } = new URL(request.url, `http://${request.headers.host}`);
 
             // Route-based checking: Only upgrade if the path matches exactly
-            if (pathname === `${settings.wsroute}`) {
+            if (pathname === "/api/chartserver-stream") {
                 wss.handleUpgrade(request, socket, head, (ws) => {
                     wss.emit('connection', ws, request);
                 });
@@ -340,9 +362,9 @@ app.get('/', (req, res) => {
     res.sendFile(path.resolve(ROOT_PATH, "map.html"));
 });
 
-app.get("/api/settings", (req, res) => {
+app.get("/api/config", (req, res) => {
     // give client freshly read settings in case of running edits
-    const clientsettings = JSON.parse(fs.readFileSync(settingspath, 'utf-8'));
+    const clientsettings = loadConfig(settingspath);
     res.json(clientsettings);
 });
 
@@ -419,9 +441,9 @@ app.post("/api/settings/edit", async (req, res) => {
         const dataToSave = req.body;
         const filePath = settingspath;
 
-        await writeFile(filePath, JSON.stringify(dataToSave, null, 2), 'utf8');
+        await writeFile(filePath, yaml.dump(dataToSave, { indent: 2 }), 'utf8');
 
-        console.log(`settings.json successfully written to ${filePath}`);
+        console.log(`config.yml successfully written to ${filePath}`);
 
         return res.status(200).json({ message: 'File written successfully' });
 

@@ -26,7 +26,7 @@ It is used for browser-based aviation charts, weather and meteorological overlay
 - `weather/` — Aviationweather.gov weather files, downloaded at a user-defined interval and immediately sent to client(s) 
 - `airports.db` — SQLite airport database used for airport data, runways, and frequencies
 - `mapstate.db` — user state persistence for map settings - picks up where you left off
-- `settings.json` — runtime configuration for ports, weather source URLs, and app defaults
+- `config.yml` — runtime configuration for ports, weather source URLs, and app defaults
 
 ## Requirements
 
@@ -43,15 +43,14 @@ npm install
 
 ## Configuration
 
-The main runtime settings live in `settings.json`:
+The main runtime settings live in `config.yml`:
 
-```partial json settings example showing defaults
-{
-  "httpport": 8500,
-  "wsroute": "/api/chartserver-stream",
-  "startupzoom": 9,
-  "defaultposition": { "lon": -87.6298, "lat": 41.8781 }
-}
+```yaml
+httpport: 8600
+startupzoom: 13
+defaultposition:
+  - -98.23643
+  - 30.73659
 ```
 
 Key settings include:

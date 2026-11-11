@@ -1,0 +1,28 @@
+httpport: 8600
+debug: false
+uselocaltime: false
+distanceunit: "sm"
+startupzoom: 13
+swipeThreshold: 100
+
+animatedwxurl: "https://opengeo.ncep.noaa.gov/geoserver/conus/conus_bref_qcd/ows"
+animatedwxfetchminutes: 120
+animatedwxframerateseconds: 3
+
+addscurrentwxurl: "https://aviationweather.gov/data/cache/###.cache.xml.gz"
+addscurrentwxurlcsv: "https://aviationweather.gov/data/cache/###.cache.csv.gz"
+wxupdateintervalminutes: 10
+maxmetarcount: 500
+
+showattribution: true
+usemetricunits: false
+
+getHeliports: false
+getClosedAirports: false
+airportsFilter: "US"
+
+defaultsearchradius: 25
+defaultposition:
+  - -98.23643
+  - 30.73659
+overridelastposition: false
