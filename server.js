@@ -393,8 +393,12 @@ app.post("/api/userdata", (req, res) => {
     const newState = JSON.stringify(req.body);
     try {
         const dttm = new Date().toLocaleString()
-        const stmt = mapstatedb.prepare("UPDATE user_state SET state = ?, updated_at = ? WHERE id = ?");
-        stmt.run(newState, dttm, userId);
+        const stmt = mapstatedb.prepare(`
+            INSERT INTO user_state (id, state, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET state = excluded.state, updated_at = excluded.updated_at
+        `);
+        stmt.run(userId, newState, dttm);
 
         console.log(`user_state updated successfully for user ${userId}`);
         res.status(204).end();
@@ -790,10 +794,18 @@ async function downloadAndExtractXML() {
     }
 }
 
+function getWxUpdateIntervalMs() {
+    const mins = Number(settings.wxupdateintervalminutes);
+    if (Number.isFinite(mins) && mins > 0) return mins * 60 * 1000;
+    const ms = Number(settings.wxupdateintervalmsec);
+    if (Number.isFinite(ms) && ms > 0) return ms;
+    return 600000;
+}
+
 function shouldDownload(outputPath) {
     var answer = false;
     try {
-        const thresholdMs = settings.wxupdateintervalminutes * 60 * 1000;
+        const thresholdMs = getWxUpdateIntervalMs();
 
         // Get file stats
         const stats = fs.statSync(outputPath);
@@ -833,7 +845,7 @@ async function runDownloads() {
         }
 
         // Wait cleanly for the specified interval before looping again
-        await delay(settings.wxupdateintervalminutes * 60 * 1000);
+        await delay(getWxUpdateIntervalMs());
     }
 }
 

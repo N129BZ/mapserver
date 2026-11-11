@@ -271,7 +271,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             }
 
             const rawdata = await response.json();
-            const data = JSON.parse(rawdata);
+            const data = typeof rawdata === 'string' ? JSON.parse(rawdata) : (rawdata || {});
 
             mapstate.center = data.center;
             mapstate.zoom = data.zoom;
