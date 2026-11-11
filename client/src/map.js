@@ -339,7 +339,7 @@ document.addEventListener('DOMContentLoaded', async function () {
      * Animation variables 
      */
     let animationId = null;
-    let startDate = getTimeThreeHoursAgo();
+    let startDate = getTimeMinutesAgo(settings.animatedwxfetchminutes);
     let frameRate = 1.0; // frames per second
     const animatecontrol = document.getElementById('wxbuttons');
 
@@ -588,11 +588,13 @@ document.addEventListener('DOMContentLoaded', async function () {
     await startListening();
 
     /**
-     * For weather animation, gets the time 3 hours ago
-     * @returns Date
+     * For weather animation, gets the time requested amount of minutes ago
+     * @param {number} minutes - Number of minutes in the past
+     * @returns {Date}
      */
-    function getTimeThreeHoursAgo() {
-        return new Date(Math.round(Date.now() / 3600000) * 3600000 - 3600000 * 3);
+    function getTimeMinutesAgo(minutes) {
+        const mins = Number.isFinite(Number(minutes)) && Number(minutes) > 0 ? Number(minutes) : 180;
+        return new Date(Math.round(Date.now() / 60000) * 60000 - 60000 * mins);
     }
 
     /**
@@ -601,10 +603,18 @@ document.addEventListener('DOMContentLoaded', async function () {
     let animatedWxTileSource = null;
     let animatedWxTileLayer = null;
     if (internetAvailable) {
+        const defaultWxLayer = settings.animatedwxurl?.includes('mesonet.agron.iastate.edu')
+            ? 'nexrad-n0r-wmst'
+            : 'conus_bref_qcd';
+
         animatedWxTileSource = new TileWMS({
-            attributions: ['Iowa State University'],
+            attributions: ['NOAA / NWS'],
             url: settings.animatedwxurl,
-            params: { 'LAYERS': 'nexrad-n0r-wmst' },
+            params: {
+                'LAYERS': settings.animatedwxlayer || defaultWxLayer,
+                'TILED': true,
+                'TRANSPARENT': true,
+            },
         });
 
         animatedWxTileLayer = new TileLayer({
@@ -621,10 +631,10 @@ document.addEventListener('DOMContentLoaded', async function () {
      * Update the time clock  
      */
     function setTime() {
-        if (internetAvailable) {
-            startDate.setMinutes(startDate.getMinutes() + 15);
+        if (internetAvailable && animatedWxTileSource) {
+            startDate.setMinutes(startDate.getMinutes() + 5);
             if (startDate > Date.now()) {
-                startDate = getTimeThreeHoursAgo();
+                startDate = getTimeMinutesAgo(settings.animatedwxfetchminutes);
             }
             animatedWxTileSource.updateParams({ 'TIME': startDate.toISOString() });
             updateInfo();
@@ -647,7 +657,7 @@ document.addEventListener('DOMContentLoaded', async function () {
      * Start the weather radar animation
      */
     const playWeatherRadar = async function () {
-        stop();
+        await stopWeatherRadar();
         animationId = window.setInterval(setTime, 1000 / frameRate);
     };
 

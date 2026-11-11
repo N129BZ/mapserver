@@ -793,7 +793,7 @@ async function downloadAndExtractXML() {
 function shouldDownload(outputPath) {
     var answer = false;
     try {
-        const thresholdMs = settings.wxupdateintervalmsec;
+        const thresholdMs = settings.wxupdateintervalminutes * 60 * 1000;
 
         // Get file stats
         const stats = fs.statSync(outputPath);
@@ -833,7 +833,7 @@ async function runDownloads() {
         }
 
         // Wait cleanly for the specified interval before looping again
-        await delay(settings.wxupdateintervalmsec);
+        await delay(settings.wxupdateintervalminutes * 60 * 1000);
     }
 }
 
