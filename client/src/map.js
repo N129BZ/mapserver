@@ -506,7 +506,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         name: "metars",
         visible: false,
         zIndex: 99,
-        canvasWillReadFrequently: true,
+        willReadFrequently: true,
         updateWhileAnimating: false,
         updateWhileInteracting: false
     });
@@ -530,7 +530,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         name: "tafs",
         visible: false,
         zIndex: 99,
-        canvasWillReadFrequently: true,
+        willReadFrequently: true,
         updateWhileAnimating: false,
         updateWhileInteracting: false
     });
@@ -555,7 +555,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         name: "pireps",
         visible: false,
         zIndex: 100,
-        canvasWillReadFrequently: true,
+        willReadFrequently: true,
         updateWhileAnimating: false,
         updateWhileInteracting: false
     });
@@ -567,7 +567,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         zIndex: 99,
         name: "airports",
         visible: false,
-        canvasWillReadFrequently: true,
+        willReadFrequently: true,
         updateWhileAnimating: false,
         updateWhileInteracting: false
     });
@@ -612,7 +612,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             extent: extent,
             source: animatedWxTileSource,
             visible: false,
-            zIndex: 110
+            zIndex: 110,
         });
         map.addLayer(animatedWxTileLayer);
     }
@@ -731,7 +731,6 @@ document.addEventListener('DOMContentLoaded', async function () {
                             visible: visible,
                             extent: extent,
                             zIndex: zindex,
-                            canvasWillReadFrequently: true,
                             displayInLayerSwitcher: displayInSwitcher
                         });
                         map.addLayer(layer);
@@ -749,6 +748,27 @@ document.addEventListener('DOMContentLoaded', async function () {
         groupSelectStyle: 'children',
     });
     map.addControl(layerSwitcher);
+
+    // Keep the 3 weather layers (METARs, TAFs, PIREPs) mutually exclusive in LayerSwitcher
+    const weatherLayers = [metarVectorLayer, tafVectorLayer, pirepVectorLayer];
+    for (const activeLayer of weatherLayers) {
+        activeLayer.on('change:visible', () => {
+            if (!activeLayer.getVisible()) return;
+
+            let changed = false;
+            for (const otherLayer of weatherLayers) {
+                if (otherLayer !== activeLayer && otherLayer.getVisible()) {
+                    otherLayer.setVisible(false);
+                    changed = true;
+                }
+            }
+
+            if (changed) {
+                closePopup();
+                layerSwitcher.renderPanel();
+            }
+        });
+    }
 
     /**
      * popup close event handler
@@ -1120,74 +1140,88 @@ document.addEventListener('DOMContentLoaded', async function () {
     });
 
     /**
-     * Event to view Metar/TAF popup & closure
+     * Event to view METAR/TAF/PIREP/AIRPORT popup window
      */
     map.on('click', async (evt) => {
-        let features = [];
-        let htol = isMobile ? settings.smallScreenHitTolerance : 1;
+        const interactiveLayers = [
+            metarVectorLayer,
+            tafVectorLayer,
+            pirepVectorLayer,
+            airportVectorLayer
+        ];
 
-        map.forEachFeatureAtPixel(evt.pixel, (feature) => {
-            if (feature) {
-                features.push(feature);
-            }
-        }, { hitTolerance: htol });
-
+        let clickedfeature = null;
         let handled = false;
-        // Prioritize METAR, then TAF, then others
-        const metarFeature = features.find(f => f.get('datatype') === 'METAR');
-        if (metarFeature) {
-            await displayMetarPopup(metarFeature);
-            popupoverlay.setPosition(evt.coordinate);
-            handled = true;
+
+        // Only query layers that are currently visible in the LayerSwitcher/view
+        for (const layer of interactiveLayers) {
+            if (!layer.isVisible()) continue;
+            const layerfeatures = await layer.getFeatures(evt.pixel);
+            if (layerfeatures?.length > 0) {
+                clickedfeature = layerfeatures[0];
+                break;
+            }
         }
-        else {
-            const tafFeature = features.find(f => f.get('datatype') === 'TAF');
-            if (tafFeature) {
-                await displayTafPopup(tafFeature);
+
+        // If no feature was found, drop out instantly
+        if (clickedfeature === null) {
+            closePopup();
+            return;
+        }
+
+        const featuretype = clickedfeature.get?.('datatype');
+        
+        switch (featuretype) {
+            case 'METAR':
+                await displayMetarPopup(clickedfeature);
                 popupoverlay.setPosition(evt.coordinate);
                 handled = true;
-            }
-            else {
-                const pirepFeature = features.find(f => f.get('datatype') === 'PIREP');
-                if (pirepFeature) {
-                    await displayPirepPopup(pirepFeature);
-                    popupoverlay.setPosition(evt.coordinate);
-                    handled = true;
-                }
-                else {
-                    const airportFeature = features.find(f => f.get('datatype') === 'AIRPORT');
-                    if (airportFeature) {
-                        const ident = airportFeature.get("ident");
-                        const station_name = airportFeature.get("name");
-                        const bgcolor = airportFeature.get("bgcolor");
-                        const fgcolor = airportFeature.get("fgcolor");
-                        const airport = airportFeature.get("airport");
+                break;
+            case 'TAF':
+                await displayTafPopup(clickedfeature);
+                popupoverlay.setPosition(evt.coordinate);
+                handled = true;
+                break;
+            case 'PIREP':
+                await displayPirepPopup(clickedfeature);
+                popupoverlay.setPosition(evt.coordinate);
+                handled = true;
+                break;
+            case 'AIRPORT':
+                const ident = clickedfeature.ident || clickedfeature.get?.("ident");
+                const station_name = clickedfeature.name || clickedfeature.get?.("name");
+                const bgcolor = clickedfeature.bgcolor || clickedfeature.get?.("bgcolor");
+                const fgcolor = clickedfeature.fgcolor || clickedfeature.get?.("fgcolor");
+                const airport = clickedfeature.airport || clickedfeature.get?.("airport");
+                
+                const parameters = {
+                    type: "AIRPORT",
+                    colors: { bgcolor, fgcolor },
+                    station_name: station_name,
+                    ident: ident,
+                    airport: airport,
+                    hascallback: false
+                };
 
-                        const parameters = {
-                            type: "AIRPORT",
-                            colors: { bgcolor, fgcolor },
-                            station_name: station_name,
-                            ident: ident,
-                            airport: airport,
-                            hascallback: false
-                        };
-
-                        await displayAirportPopup(parameters);
-                        popupoverlay.setPosition(evt.coordinate);
-                        handled = true;
-                    }
-                }
-            }
+                await displayAirportPopup(parameters);
+                popupoverlay.setPosition(evt.coordinate);
+                handled = true;
+                break;
         }
+
         if (!handled) {
             closePopup();
         }
     });
 
+
     /**
      * Double-click/Double-tap event handler
      */
     map.on('dblclick', async function (evt) {
+
+        if (!airportVectorLayer.getVisible()) return false;
+
         const coordinate = evt.coordinate;
         const lonLat = toLonLat(coordinate);
 
