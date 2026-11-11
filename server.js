@@ -799,7 +799,7 @@ function shouldDownload(outputPath) {
         const stats = fs.statSync(outputPath);
         const fileAgeMs = Date.now() - stats.mtime.getTime();
         if (fileAgeMs > thresholdMs) {
-            console.log(`File is ${Math.round(fileAgeMs / 60000)} minutes old. Updating...`);
+            //console.log(`File is ${Math.round(fileAgeMs / 60000)} minutes old. Updating...`);
             answer = true;
         }
         else {

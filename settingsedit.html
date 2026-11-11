@@ -1198,7 +1198,7 @@
         </div>
         <div class="stat-chip">
           <span class="label">Weather Cache:</span>
-          <span class="val" id="stat-wx-interval">11 min</span>
+          <span class="val" id="stat-wx-interval">10 min</span>
         </div>
         <div class="stat-chip">
           <span class="label">Units:</span>
@@ -1349,26 +1349,26 @@
               </div>
             </div>
 
-            <!-- wxupdateintervalmsec -->
-            <div class="field-row" id="field-wxupdateintervalmsec">
+            <!-- wxupdateintervalminutes -->
+            <div class="field-row" id="field-wxupdateintervalminutes">
               <div class="field-header">
-                <label for="input-wxupdateintervalmsec" class="field-label">
+                <label for="input-wxupdateintervalminutes" class="field-label">
                   Weather Polling Interval
                   <span class="modified-tag">MODIFIED</span>
                 </label>
-                <span class="human-time-badge" id="badge-human-interval">11.0 min (660,000 ms)</span>
+                <span class="human-time-badge" id="badge-human-interval">10 min (600,000 ms)</span>
               </div>
-              <p class="field-desc">Frequency in milliseconds to fetch updated METARs, TAFs, and Doppler frames.</p>
+              <p class="field-desc">Frequency in minutes to fetch updated METARs, TAFs, and Doppler frames.</p>
               <div class="input-wrapper">
-                <input type="number" id="input-wxupdateintervalmsec" name="wxupdateintervalmsec" class="form-input font-mono has-suffix" min="10000" step="5000" required>
-                <span class="input-suffix">ms</span>
+                <input type="number" id="input-wxupdateintervalminutes" name="wxupdateintervalminutes" class="form-input font-mono has-suffix" min="1" step="1" required>
+                <span class="input-suffix">min</span>
               </div>
               <div class="interval-pills">
-                <span class="interval-pill" onclick="setIntervalVal(300000)">5 min (300k)</span>
-                <span class="interval-pill" onclick="setIntervalVal(600000)">10 min (600k)</span>
-                <span class="interval-pill" onclick="setIntervalVal(660000)">11 min (660k Default)</span>
-                <span class="interval-pill" onclick="setIntervalVal(900000)">15 min (900k)</span>
-                <span class="interval-pill" onclick="setIntervalVal(1800000)">30 min (1.8M)</span>
+                <span class="interval-pill" onclick="setIntervalVal(5)">5 min</span>
+                <span class="interval-pill" onclick="setIntervalVal(10)">10 min (Default)</span>
+                <span class="interval-pill" onclick="setIntervalVal(15)">15 min</span>
+                <span class="interval-pill" onclick="setIntervalVal(30)">30 min</span>
+                <span class="interval-pill" onclick="setIntervalVal(60)">60 min</span>
               </div>
             </div>
 
@@ -1859,7 +1859,7 @@
       "animatedwxurl": "https://opengeo.ncep.noaa.gov/geoserver/conus/conus_bref_qcd/ows",
       "addscurrentwxurl": "https://aviationweather.gov/data/cache/###.cache.xml.gz",
       "addscurrentwxurlcsv": "https://aviationweather.gov/data/cache/###.cache.csv.gz",
-      "wxupdateintervalmsec": 600000,
+      "wxupdateintervalminutes": 10,
       "showattribution": true,
       "usemetricunits": false,
       "smallScreenHitTolerance": 40,
@@ -2053,7 +2053,12 @@
 
       merged.httpport = parseInt(merged.httpport, 10) || 8500;
       merged.maxmetarcount = parseInt(merged.maxmetarcount, 10) || 800;
-      merged.wxupdateintervalmsec = parseInt(merged.wxupdateintervalmsec, 10) || 600000;
+      if (input && input.wxupdateintervalminutes === undefined && input.wxupdateintervalmsec !== undefined) {
+        merged.wxupdateintervalminutes = Math.max(1, Math.round(Number(input.wxupdateintervalmsec) / 60000)) || 10;
+      } else {
+        merged.wxupdateintervalminutes = parseInt(merged.wxupdateintervalminutes, 10) || 10;
+      }
+      delete merged.wxupdateintervalmsec;
       merged.smallScreenHitTolerance = parseInt(merged.smallScreenHitTolerance, 10) || 40;
       merged.swipeThreshold = parseInt(merged.swipeThreshold, 10) || 100;
       merged.startupzoom = parseInt(merged.startupzoom, 10) || 10;
@@ -2075,6 +2080,7 @@
     function serializePayload(state) {
       if (!state) return {};
       const payload = Object.assign({}, rawServerConfig || {}, state);
+      delete payload.wxupdateintervalmsec;
       if (isPositionArrayFormat) {
         payload.defaultposition = [
           parseFloat(state.defaultposition.lon.toFixed(5)),
@@ -2101,7 +2107,7 @@
       document.getElementById("input-animatedwxurl").value = config.animatedwxurl;
       document.getElementById("input-addscurrentwxurl").value = config.addscurrentwxurl;
       document.getElementById("input-addscurrentwxurlcsv").value = config.addscurrentwxurlcsv;
-      document.getElementById("input-wxupdateintervalmsec").value = config.wxupdateintervalmsec;
+      document.getElementById("input-wxupdateintervalminutes").value = config.wxupdateintervalminutes;
       document.getElementById("input-airportsFilter").value = config.airportsFilter;
       document.getElementById("input-defaultsearchradius").value = config.defaultsearchradius;
 
@@ -2142,7 +2148,7 @@
       document.getElementById("stat-port").textContent = config.httpport;
       document.getElementById("stat-ws").textContent = config.wsroute;
       document.getElementById("stat-units").textContent = config.distanceunit.toUpperCase();
-      updateHumanInterval(config.wxupdateintervalmsec);
+      updateHumanInterval(config.wxupdateintervalminutes);
 
       // Radar test link
       const radarLink = document.getElementById("link-test-radar");
@@ -2167,7 +2173,7 @@
         animatedwxurl: document.getElementById("input-animatedwxurl").value.trim(),
         addscurrentwxurl: document.getElementById("input-addscurrentwxurl").value.trim(),
         addscurrentwxurlcsv: document.getElementById("input-addscurrentwxurlcsv").value.trim(),
-        wxupdateintervalmsec: parseInt(document.getElementById("input-wxupdateintervalmsec").value, 10) || 600000,
+        wxupdateintervalminutes: parseInt(document.getElementById("input-wxupdateintervalminutes").value, 10) || 10,
         showattribution: document.getElementById("toggle-showattribution").checked,
         usemetricunits: document.getElementById("toggle-usemetricunits").checked,
         smallScreenHitTolerance: parseInt(document.getElementById("input-smallScreenHitTolerance").value, 10) || 40,
@@ -2198,7 +2204,7 @@
         // Update dynamic stats
         document.getElementById("stat-port").textContent = currentState.httpport;
         document.getElementById("stat-ws").textContent = currentState.wsroute;
-        updateHumanInterval(currentState.wxupdateintervalmsec);
+        updateHumanInterval(currentState.wxupdateintervalminutes);
       });
 
       form.addEventListener("change", (e) => {
@@ -2454,19 +2460,20 @@
       showToast(`Selected preset coordinate: ${lat}, ${lon}`, "info");
     };
 
-    window.setIntervalVal = function(ms) {
-      document.getElementById("input-wxupdateintervalmsec").value = ms;
-      currentState.wxupdateintervalmsec = ms;
-      updateHumanInterval(ms);
+    window.setIntervalVal = function(minutes) {
+      document.getElementById("input-wxupdateintervalminutes").value = minutes;
+      currentState.wxupdateintervalminutes = minutes;
+      updateHumanInterval(minutes);
       updateLiveJsonDisplay();
       checkDirtyState();
     };
 
-    function updateHumanInterval(ms) {
-      const minutes = (ms / 60000).toFixed(1);
-      const text = `${minutes} min (${Number(ms).toLocaleString()} ms)`;
+    function updateHumanInterval(minutes) {
+      const mins = Number(minutes) || 0;
+      const ms = mins * 60000;
+      const text = `${mins} min (${ms.toLocaleString()} ms)`;
       document.getElementById("badge-human-interval").textContent = text;
-      document.getElementById("stat-wx-interval").textContent = `${minutes} min`;
+      document.getElementById("stat-wx-interval").textContent = `${mins} min`;
     }
 
     /**
