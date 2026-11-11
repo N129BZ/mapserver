@@ -760,6 +760,18 @@ document.addEventListener('DOMContentLoaded', async function () {
     });
     map.addControl(layerSwitcher);
 
+    // Open on button click (activationMode: 'click'), and close when moving off the menu or tapping the map
+    layerSwitcher.element.addEventListener('mouseleave', () => {
+        if (layerSwitcher.element.classList.contains(layerSwitcher.shownClassName)) {
+            layerSwitcher.hidePanel();
+        }
+    });
+    map.on('pointerdown', () => {
+        if (layerSwitcher.element.classList.contains(layerSwitcher.shownClassName)) {
+            layerSwitcher.hidePanel();
+        }
+    });
+
     // Keep the 3 weather layers (METARs, TAFs, PIREPs) mutually exclusive in LayerSwitcher
     const weatherLayers = [metarVectorLayer, tafVectorLayer, pirepVectorLayer];
     for (const activeLayer of weatherLayers) {
