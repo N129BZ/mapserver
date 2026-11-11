@@ -765,12 +765,14 @@ document.addEventListener('DOMContentLoaded', async function () {
 
                     if (createLayer) {
                         const dburl = URL_GET_TILE.replace("{dbname}", dbname);
+                        const parsedMaxZoom = metadata?.maxzoom != null && metadata.maxzoom !== '' ? Number(metadata.maxzoom) : NaN;
+                        const parsedMinZoom = metadata?.minzoom != null && metadata.minzoom !== '' ? Number(metadata.minzoom) : NaN;
                         const layer = new TileLayer({
                             source: new XYZ({
                                 onTileLoadError: function (event) { }, // Suppress annoying console 404 errors
                                 url: dburl,
-                                maxzoom: metadata && metadata.maxzoom ? metadata.maxzoom : undefined,
-                                minzoom: metadata && metadata.minzoom ? metadata.minzoom : undefined,
+                                maxZoom: Number.isFinite(parsedMaxZoom) ? parsedMaxZoom : undefined,
+                                minZoom: Number.isFinite(parsedMinZoom) ? parsedMinZoom : undefined,
                                 attributions: metadata && metadata.attribution ? metadata.attribution : undefined,
                                 attributionsCollapsible: false,
                             }),

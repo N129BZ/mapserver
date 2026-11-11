@@ -705,6 +705,7 @@ function loadTile(z, x, y, response, db) {
         const row = stmt.get(z, x, y); // Pass parameters directly
 
         if (!row || !row.tile_data) {
+            response.writeHead(404);
             response.end();
         } else {
             response.writeHead(200);
