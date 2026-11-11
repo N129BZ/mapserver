@@ -756,6 +756,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     const layerSwitcher = new LayerSwitcher({
         tipLabel: 'Layers',
         groupSelectStyle: 'children',
+        activationMode: 'click',
     });
     map.addControl(layerSwitcher);
 

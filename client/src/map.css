@@ -110,24 +110,24 @@ html, body {
     font-size: medium;
     z-index: 5000;
 }
-.layer-switcher > button {
+.layer-switcher:not(.shown) > button {
   /* Custom high-contrast menu icon SVG */
   background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>') !important;
-  width: 44px;
-  height: 44px;
+  width: 88px !important;
+  height: 88px !important;
   background-color: #1e293b !important;
-  border: 1.5px solid rgba(255, 255, 255, 0.85);
-  border-radius: 6px;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
   cursor: pointer;
 
   /* Standard background properties for clean scaling */
-  background-size: 26px 26px !important;
+  background-size: 52px 52px !important;
   background-repeat: no-repeat !important;
   background-position: center center !important;
 }
-.layer-switcher > button:hover,
-.layer-switcher > button:focus-visible {
+.layer-switcher:not(.shown) > button:hover,
+.layer-switcher:not(.shown) > button:focus-visible {
   background-color: #2563eb !important;
   border-color: #ffffff;
 }
