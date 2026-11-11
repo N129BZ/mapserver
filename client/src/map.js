@@ -338,8 +338,12 @@ document.addEventListener('DOMContentLoaded', async function () {
      * Animation variables 
      */
     let animationId = null;
-    let startDate = getTimeMinutesAgo(settings.animatedwxfetchminutes);
-    let frameRate = settings.animatedwxframerateseconds; // frames per second
+    let radarFrames = [];
+    let radarFrameIndex = 0;
+    let radarSequenceExpiresAt = 0;
+    let radarSequencePromise = null;
+    let currentRadarTimestamp = null;
+    let frameRate = settings.animatedwxframerateseconds || 3; // frames per second
     const animatecontrol = document.getElementById('wxbuttons');
 
     /*******keymap loading ******/
@@ -587,17 +591,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     await startListening();
 
     /**
-     * For weather animation, gets the time requested amount of minutes ago
-     * @param {number} minutes - Number of minutes in the past
-     * @returns {Date}
-     */
-    function getTimeMinutesAgo(minutes) {
-        const mins = Number.isFinite(Number(minutes)) && Number(minutes) > 0 ? Number(minutes) : 180;
-        return new Date(Math.round(Date.now() / 60000) * 60000 - 60000 * mins);
-    }
-
-    /**
-    * Tile source for animated weather
+    * Tile source for animated weather (served via server-side 30-min sequence & tile cache)
     */
     let animatedWxTileSource = null;
     let animatedWxTileLayer = null;
@@ -608,7 +602,8 @@ document.addEventListener('DOMContentLoaded', async function () {
 
         animatedWxTileSource = new TileWMS({
             attributions: ['NOAA / NWS'],
-            url: settings.animatedwxurl,
+            url: `${URL_SERVER}/api/radar/wms`,
+            cacheSize: 2048,
             params: {
                 'LAYERS': settings.animatedwxlayer || defaultWxLayer,
                 'TILED': true,
@@ -627,20 +622,61 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
 
     /**
-     * Update the time clock  
+     * Fetch the cached NOAA radar timestamp sequence from the server when empty or expired
      */
-    function setTime() {
-        if (internetAvailable && animatedWxTileSource) {
-            startDate.setMinutes(startDate.getMinutes() + 5);
-            if (startDate > Date.now()) {
-                startDate = getTimeMinutesAgo(settings.animatedwxfetchminutes);
-            }
-            animatedWxTileSource.updateParams({ 'TIME': startDate.toISOString() });
-            updateInfo();
+    async function ensureRadarSequence(force = false) {
+        if (!internetAvailable || !animatedWxTileSource) return [];
+        if (!force && radarFrames.length > 0 && Date.now() < radarSequenceExpiresAt) {
+            return radarFrames;
         }
+        if (!radarSequencePromise) {
+            radarSequencePromise = (async () => {
+                try {
+                    const response = await fetch(`${URL_SERVER}/api/radar/sequence`);
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    const data = await response.json();
+                    if (Array.isArray(data.frames) && data.frames.length > 0) {
+                        const prevTimestamp = currentRadarTimestamp;
+                        radarFrames = data.frames;
+                        radarSequenceExpiresAt = Number(data.expiresAt) || (Date.now() + 30 * 60 * 1000);
+                        const preservedIndex = prevTimestamp ? radarFrames.indexOf(prevTimestamp) : -1;
+                        radarFrameIndex = preservedIndex >= 0 ? preservedIndex : 0;
+                    }
+                } catch (err) {
+                    console.warn("Failed to load cached radar sequence:", err);
+                }
+                return radarFrames;
+            })().finally(() => {
+                radarSequencePromise = null;
+            });
+        }
+        return radarSequencePromise;
     }
 
-    setTime();
+    function applyRadarFrame() {
+        if (!animatedWxTileSource || radarFrames.length === 0) return;
+        currentRadarTimestamp = radarFrames[radarFrameIndex];
+        animatedWxTileSource.updateParams({ 'TIME': currentRadarTimestamp });
+        updateInfo();
+    }
+
+    /**
+     * Advance to the next cached radar animation frame
+     */
+    function setTime() {
+        if (!internetAvailable || !animatedWxTileSource) return;
+
+        if (Date.now() >= radarSequenceExpiresAt) {
+            // Refresh sequence in background when the 30-minute window elapses
+            ensureRadarSequence();
+        }
+        if (radarFrames.length === 0) return;
+
+        radarFrameIndex = (radarFrameIndex + 1) % radarFrames.length;
+        applyRadarFrame();
+    }
 
     /**
      * Stop the weather radar animation
@@ -657,7 +693,11 @@ document.addEventListener('DOMContentLoaded', async function () {
      */
     const playWeatherRadar = async function () {
         await stopWeatherRadar();
-        animationId = window.setInterval(setTime, 1000 / frameRate);
+        await ensureRadarSequence();
+        if (radarFrames.length > 0) {
+            applyRadarFrame();
+            animationId = window.setInterval(setTime, 1000 / frameRate);
+        }
     };
 
     /**
@@ -677,7 +717,7 @@ document.addEventListener('DOMContentLoaded', async function () {
      */
     function updateInfo() {
         const el = document.getElementById('info');
-        el.innerHTML = getLocalTime(startDate.toString());
+        el.innerHTML = currentRadarTimestamp ? getLocalTime(currentRadarTimestamp) : '';
     }
 
     if (internetAvailable) {

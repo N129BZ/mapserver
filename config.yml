@@ -8,6 +8,7 @@ swipeThreshold: 100
 animatedwxurl: "https://opengeo.ncep.noaa.gov/geoserver/conus/conus_bref_qcd/ows"
 animatedwxfetchminutes: 120
 animatedwxframerateseconds: 3
+animatedwxupdateintervalminutes: 30
 
 addscurrentwxurl: "https://aviationweather.gov/data/cache/###.cache.xml.gz"
 addscurrentwxurlcsv: "https://aviationweather.gov/data/cache/###.cache.csv.gz"

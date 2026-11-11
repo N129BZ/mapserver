@@ -1,18 +1,17 @@
 
 import express from 'express';
 import cors from 'cors';
-import { readFile } from 'fs/promises';
+import { readFile, mkdir, readdir, rename, rm, writeFile } from 'fs/promises';
 import fs from 'node:fs';
 import cookieParser from 'cookie-parser';
 import path from 'node:path';
 import { cwd } from 'node:process';
 import sqlite from 'node:sqlite';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
 import { atan, exp, pi, pow } from 'mathjs';
 import { Transform, Readable } from 'node:stream';
-import { rename, writeFile } from 'node:fs/promises';
 import { pipeline } from 'node:stream/promises';
 import { createGunzip } from 'node:zlib';
 import { XMLParser } from 'fast-xml-parser';
@@ -129,8 +128,13 @@ const clientDist = path.resolve(appdir, "client", "dist");
 const ROOT_PATH = fs.existsSync(clientDist) ? clientDist : path.resolve(appdir, "dist");
 const TILE_PATH = resolveTilesFolder(isdocker);
 const WEATHER_PATH = path.resolve(appdir, "weather");
+const RADAR_CACHE_DIR = path.join(WEATHER_PATH, "radar_cache");
+const RADAR_SEQUENCE_FILE = path.join(WEATHER_PATH, "radar_sequence.json");
 if (!fs.existsSync(WEATHER_PATH)) {
     fs.mkdirSync(WEATHER_PATH, { recursive: true });
+}
+if (!fs.existsSync(RADAR_CACHE_DIR)) {
+    fs.mkdirSync(RADAR_CACHE_DIR, { recursive: true });
 }
 const airportdb = new DBEngine(path.resolve(appdir, "airports.db"), { readonly: true });
 const connections = new Map();
@@ -366,6 +370,44 @@ app.get("/api/config", (req, res) => {
     // give client freshly read settings in case of running edits
     const clientsettings = loadConfig(settingspath);
     res.json(clientsettings);
+});
+
+app.get("/api/radar/sequence", async (req, res) => {
+    try {
+        const sequence = await getOrRefreshRadarSequence(req.query.refresh === "1");
+        const remainingMs = Math.max(0, sequence.expiresAt - Date.now());
+        res.setHeader("Cache-Control", `public, max-age=${Math.max(1, Math.floor(remainingMs / 1000))}`);
+        res.json({
+            fetchedAt: sequence.fetchedAt,
+            expiresAt: sequence.expiresAt,
+            ttlSeconds: Math.round(sequence.updateIntervalMs / 1000),
+            layer: sequence.layer,
+            frames: sequence.frames
+        });
+    } catch (err) {
+        console.error("Failed to retrieve radar sequence:", err);
+        res.status(502).json({ error: "Failed to retrieve radar animation sequence" });
+    }
+});
+
+app.get("/api/radar/wms", async (req, res) => {
+    try {
+        const query = { ...req.query };
+        if (!query.TIME && !query.time) {
+            const sequence = await getOrRefreshRadarSequence();
+            if (sequence.frames.length > 0) {
+                query.TIME = sequence.frames[sequence.frames.length - 1];
+            }
+        }
+        const { buffer, contentType, cacheStatus, ttlSeconds } = await getCachedOrFetchRadarTile(query);
+        res.setHeader("Content-Type", contentType);
+        res.setHeader("Cache-Control", `public, max-age=${ttlSeconds}`);
+        res.setHeader("X-Radar-Cache", cacheStatus);
+        res.send(buffer);
+    } catch (err) {
+        console.error("Failed to serve radar WMS tile:", err.message);
+        res.status(502).json({ error: "Failed to fetch radar tile" });
+    }
 });
 
 app.get("/databaselist", (req, res) => {
@@ -814,6 +856,289 @@ async function downloadAndExtractXML() {
             }
         }
     }
+}
+
+let radarSequenceCache = null;
+let radarSequencePromise = null;
+const inFlightRadarTiles = new Map();
+
+function getRadarConfig() {
+    let cfg = settings;
+    try {
+        cfg = loadConfig(settingspath);
+    } catch { }
+    const upstreamUrl = cfg.animatedwxurl || "https://opengeo.ncep.noaa.gov/geoserver/conus/conus_bref_qcd/ows";
+    const defaultLayer = upstreamUrl.includes("mesonet.agron.iastate.edu") ? "nexrad-n0r-wmst" : "conus_bref_qcd";
+    const layer = cfg.animatedwxlayer || defaultLayer;
+    const fetchMinutes = Number.isFinite(Number(cfg.animatedwxfetchminutes)) && Number(cfg.animatedwxfetchminutes) > 0
+        ? Number(cfg.animatedwxfetchminutes)
+        : 120;
+    const intervalMinutes = Number.isFinite(Number(cfg.animatedwxupdateintervalminutes)) && Number(cfg.animatedwxupdateintervalminutes) > 0
+        ? Number(cfg.animatedwxupdateintervalminutes)
+        : 30;
+    return {
+        upstreamUrl,
+        layer,
+        fetchMinutes,
+        updateIntervalMs: intervalMinutes * 60 * 1000
+    };
+}
+
+function parseIsoStepMs(stepToken) {
+    const match = /^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/i.exec(String(stepToken || "").trim());
+    if (!match) return 0;
+    const hours = Number(match[1] || 0);
+    const mins = Number(match[2] || 0);
+    const secs = Number(match[3] || 0);
+    return ((hours * 60 + mins) * 60 + secs) * 1000;
+}
+
+function parseDimensionText(rawText) {
+    const tokens = String(rawText || "").split(",").map((s) => s.trim()).filter(Boolean);
+    const timestamps = [];
+    for (const token of tokens) {
+        if (token.includes("/")) {
+            const [startStr, endStr, stepStr] = token.split("/");
+            const startMs = Date.parse(startStr);
+            const endMs = Date.parse(endStr);
+            const stepMs = parseIsoStepMs(stepStr) || 5 * 60 * 1000;
+            if (Number.isFinite(startMs) && Number.isFinite(endMs) && startMs <= endMs) {
+                for (let t = startMs; t <= endMs; t += stepMs) {
+                    timestamps.push(new Date(t).toISOString());
+                }
+            }
+        } else {
+            const ms = Date.parse(token);
+            if (Number.isFinite(ms)) {
+                timestamps.push(token);
+            }
+        }
+    }
+    return timestamps;
+}
+
+function extractTimeDimensionValues(node, targetLayer) {
+    let fallbackValues = [];
+    function visit(layerNode) {
+        if (!layerNode) return null;
+        const list = Array.isArray(layerNode) ? layerNode : [layerNode];
+        for (const item of list) {
+            if (!item || typeof item !== "object") continue;
+            const dims = item.Dimension ? (Array.isArray(item.Dimension) ? item.Dimension : [item.Dimension]) : [];
+            const timeDim = dims.find((d) => String(d?.["@_name"] || d?.name || "").toLowerCase() === "time");
+            const dimText = typeof timeDim === "string" ? timeDim : timeDim?.["#text"];
+            if (dimText) {
+                const parsed = parseDimensionText(dimText);
+                if (parsed.length > 0) {
+                    if (item.Name === targetLayer) return parsed;
+                    if (fallbackValues.length === 0) fallbackValues = parsed;
+                }
+            }
+            if (item.Layer) {
+                const nested = visit(item.Layer);
+                if (nested) return nested;
+            }
+        }
+        return null;
+    }
+    const exactMatch = visit(node?.WMS_Capabilities?.Capability?.Layer || node?.WMT_MS_Capabilities?.Capability?.Layer);
+    return exactMatch || fallbackValues;
+}
+
+function sampleRadarFrames(rawValues, fetchMinutes, stepMinutes = 5) {
+    const byMs = new Map();
+    for (const val of rawValues) {
+        const ms = Date.parse(val);
+        if (Number.isFinite(ms)) {
+            byMs.set(ms, val);
+        }
+    }
+    const sortedMs = Array.from(byMs.keys()).sort((a, b) => a - b);
+    if (sortedMs.length === 0) return [];
+
+    const latestMs = sortedMs[sortedMs.length - 1];
+    const cutoffMs = latestMs - fetchMinutes * 60 * 1000;
+    const windowMs = sortedMs.filter((ms) => ms >= cutoffMs);
+    if (windowMs.length === 0) return [byMs.get(latestMs)];
+
+    const stepMs = stepMinutes * 60 * 1000;
+    const sampled = [];
+    let lastKeptMs = -Infinity;
+    for (const ms of windowMs) {
+        if (ms - lastKeptMs >= stepMs * 0.85) {
+            sampled.push(byMs.get(ms));
+            lastKeptMs = ms;
+        }
+    }
+    const latestStr = byMs.get(latestMs);
+    if (sampled[sampled.length - 1] !== latestStr) {
+        sampled.push(latestStr);
+    }
+    return sampled;
+}
+
+function buildFallbackRadarFrames(fetchMinutes, stepMinutes = 5) {
+    const stepMs = stepMinutes * 60 * 1000;
+    const endMs = Math.floor(Date.now() / stepMs) * stepMs;
+    const startMs = endMs - fetchMinutes * 60 * 1000;
+    const frames = [];
+    for (let t = startMs; t <= endMs; t += stepMs) {
+        frames.push(new Date(t).toISOString());
+    }
+    return frames;
+}
+
+function sanitizeRadarFrameDir(timeValue) {
+    const cleaned = String(timeValue || "latest").replace(/[^A-Za-z0-9._-]/g, "_");
+    return cleaned || "latest";
+}
+
+async function pruneStaleRadarCache(validFrames) {
+    const validDirs = new Set(validFrames.map(sanitizeRadarFrameDir));
+    try {
+        const entries = await readdir(RADAR_CACHE_DIR, { withFileTypes: true });
+        await Promise.all(
+            entries
+                .filter((entry) => entry.isDirectory() && !validDirs.has(entry.name))
+                .map((entry) => rm(path.join(RADAR_CACHE_DIR, entry.name), { recursive: true, force: true }))
+        );
+    } catch (err) {
+        console.warn("Failed to prune stale radar cache:", err.message);
+    }
+}
+
+async function refreshRadarSequence(cfg) {
+    const sep = cfg.upstreamUrl.includes("?") ? "&" : "?";
+    const capUrl = `${cfg.upstreamUrl}${sep}service=WMS&version=1.3.0&request=GetCapabilities`;
+    let frames = [];
+
+    try {
+        const response = await fetch(capUrl, { signal: AbortSignal.timeout(15000) });
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status} from ${capUrl}`);
+        }
+        const xmlText = await response.text();
+        const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "@_" });
+        const parsedXml = parser.parse(xmlText);
+        const rawTimes = extractTimeDimensionValues(parsedXml, cfg.layer);
+        frames = sampleRadarFrames(rawTimes, cfg.fetchMinutes, 5);
+        console.log(`Cached NOAA radar sequence (${frames.length} frames) for ${cfg.layer}, next refresh in ${Math.round(cfg.updateIntervalMs / 60000)} mins.`);
+    } catch (err) {
+        console.warn(`GetCapabilities fetch failed (${err.message}); checking existing sequence or fallback.`);
+        if (radarSequenceCache && radarSequenceCache.frames?.length > 0) {
+            frames = radarSequenceCache.frames;
+        }
+    }
+
+    if (frames.length === 0) {
+        frames = buildFallbackRadarFrames(cfg.fetchMinutes, 5);
+    }
+
+    const now = Date.now();
+    const nextSequence = {
+        fetchedAt: now,
+        expiresAt: now + cfg.updateIntervalMs,
+        updateIntervalMs: cfg.updateIntervalMs,
+        upstreamUrl: cfg.upstreamUrl,
+        layer: cfg.layer,
+        frames
+    };
+
+    radarSequenceCache = nextSequence;
+    await writeFile(RADAR_SEQUENCE_FILE, JSON.stringify(nextSequence, null, 2), "utf8");
+    await pruneStaleRadarCache(frames);
+    return nextSequence;
+}
+
+async function getOrRefreshRadarSequence(force = false) {
+    const cfg = getRadarConfig();
+
+    if (!radarSequenceCache && fs.existsSync(RADAR_SEQUENCE_FILE)) {
+        try {
+            radarSequenceCache = JSON.parse(fs.readFileSync(RADAR_SEQUENCE_FILE, "utf8"));
+        } catch { }
+    }
+
+    const isValidCache = !force
+        && radarSequenceCache
+        && Date.now() < radarSequenceCache.expiresAt
+        && radarSequenceCache.upstreamUrl === cfg.upstreamUrl
+        && radarSequenceCache.layer === cfg.layer
+        && Array.isArray(radarSequenceCache.frames)
+        && radarSequenceCache.frames.length > 0;
+
+    if (isValidCache) {
+        return radarSequenceCache;
+    }
+
+    if (!radarSequencePromise) {
+        radarSequencePromise = refreshRadarSequence(cfg).finally(() => {
+            radarSequencePromise = null;
+        });
+    }
+    return radarSequencePromise;
+}
+
+async function getCachedOrFetchRadarTile(query) {
+    const cfg = getRadarConfig();
+    const ttlSeconds = Math.max(60, Math.round(cfg.updateIntervalMs / 1000));
+    const allowedKeys = ["SERVICE", "VERSION", "REQUEST", "FORMAT", "TRANSPARENT", "LAYERS", "TILED", "TIME", "WIDTH", "HEIGHT", "CRS", "SRS", "BBOX", "STYLES"];
+    const params = new URLSearchParams();
+    const normalized = {};
+
+    for (const [k, v] of Object.entries(query)) {
+        const upper = k.toUpperCase();
+        if (allowedKeys.includes(upper) && v !== undefined && v !== null) {
+            normalized[upper] = String(v);
+        }
+    }
+    if (!normalized.SERVICE) normalized.SERVICE = "WMS";
+    if (!normalized.REQUEST) normalized.REQUEST = "GetMap";
+    if (!normalized.LAYERS) normalized.LAYERS = cfg.layer;
+
+    for (const key of Object.keys(normalized).sort()) {
+        params.set(key, normalized[key]);
+    }
+
+    const canonicalKey = params.toString();
+    const tileHash = createHash("sha256").update(canonicalKey).digest("hex").slice(0, 24);
+    const frameDir = path.join(RADAR_CACHE_DIR, sanitizeRadarFrameDir(normalized.TIME));
+    const tilePath = path.join(frameDir, `${tileHash}.png`);
+
+    try {
+        const cachedBuffer = await readFile(tilePath);
+        return { buffer: cachedBuffer, contentType: "image/png", cacheStatus: "HIT", ttlSeconds };
+    } catch { }
+
+    if (inFlightRadarTiles.has(canonicalKey)) {
+        const buffer = await inFlightRadarTiles.get(canonicalKey);
+        return { buffer, contentType: "image/png", cacheStatus: "HIT", ttlSeconds };
+    }
+
+    const fetchPromise = (async () => {
+        const sep = cfg.upstreamUrl.includes("?") ? "&" : "?";
+        const upstreamUrl = `${cfg.upstreamUrl}${sep}${canonicalKey}`;
+        const response = await fetch(upstreamUrl, { signal: AbortSignal.timeout(15000) });
+        if (!response.ok) {
+            throw new Error(`Upstream WMS returned HTTP ${response.status}`);
+        }
+        const contentType = response.headers.get("content-type") || "";
+        if (!contentType.toLowerCase().startsWith("image/")) {
+            throw new Error(`Upstream WMS returned non-image response (${contentType})`);
+        }
+        const buffer = Buffer.from(await response.arrayBuffer());
+        await mkdir(frameDir, { recursive: true });
+        const tmpPath = `${tilePath}.${randomUUID()}.tmp`;
+        await writeFile(tmpPath, buffer);
+        await rename(tmpPath, tilePath);
+        return buffer;
+    })().finally(() => {
+        inFlightRadarTiles.delete(canonicalKey);
+    });
+
+    inFlightRadarTiles.set(canonicalKey, fetchPromise);
+    const buffer = await fetchPromise;
+    return { buffer, contentType: "image/png", cacheStatus: "MISS", ttlSeconds };
 }
 
 function getWxUpdateIntervalMs() {
