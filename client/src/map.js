@@ -967,9 +967,6 @@ document.addEventListener('DOMContentLoaded', async function () {
             <tr><td style="padding:6px 8px; border-bottom: 1px solid #e0e0e0;">Seaplane Base</td><td style="text-align:right; padding:6px 8px; border-bottom: 1px solid #e0e0e0;">
                 <img src='data:image/svg+xml;utf8,${encodeURIComponent(String(airportSvgs.seaport).replace(`width="12" height="12"`, `width="20" height="20"`))}'>
                 </td></tr>
-            
-            
-            
         </table`;
 
         const colorLegend = document.getElementById('color-legend');
@@ -1119,12 +1116,8 @@ document.addEventListener('DOMContentLoaded', async function () {
             const DEGREES_PER_SECOND = 20;
             const targetRotationSpeed = DEGREES_PER_SECOND * (Math.PI / 180);
             const currentRotation = (timeInSeconds * targetRotationSpeed) % (Math.PI * 2);
-
-            // get the icons rotating and notify the layer to update
             pirepIconStyle.getImage().setRotation(currentRotation);
             pirepVectorLayer.getSource().changed();
-
-            // Tell OpenLayers to draw a new frame immediately on the next tick
             map.render();
         }
         // Keep the animation loop running
