@@ -617,8 +617,13 @@ function handleAirportListRequest(req, res) {
     }
 };
 
-httpServer.listen(settings.httpport, '0.0.0.0', () => {
-    console.log(`Server listening on port ${settings.httpport}`);
+const envHttpPort = parseInt(process.env.HTTP_PORT, 10);
+const listenPort = Number.isInteger(envHttpPort) && envHttpPort > 0 && envHttpPort <= 65535
+    ? envHttpPort
+    : (parseInt(settings.httpport, 10) || 8600);
+
+httpServer.listen(listenPort, '0.0.0.0', () => {
+    console.log(`Server listening on port ${listenPort}`);
 });
 
 async function handleAirportRequest(req, res) {
