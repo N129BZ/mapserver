@@ -418,12 +418,18 @@ app.post("/api/settings/edit", async (req, res) => {
         // req.body contains the parsed JSON object
         const dataToSave = req.body;
         const filePath = settingspath;
+        const nextPort = parseInt(dataToSave?.httpport, 10);
+        const portChanged = Number.isInteger(nextPort) && nextPort > 0 && nextPort <= 65535 && nextPort !== settings.httpport;
 
         await writeFile(filePath, JSON.stringify(dataToSave, null, 2), 'utf8');
 
         console.log(`settings.json successfully written to ${filePath}`);
 
-        return res.status(200).json({ message: 'File written successfully' });
+        return res.status(200).json({
+            message: 'File written successfully',
+            restartRequired: portChanged,
+            newPort: portChanged ? nextPort : settings.httpport
+        });
 
     } catch (error) {
         console.error('Error writing file:', error);

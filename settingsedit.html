@@ -1190,7 +1190,7 @@
       <div class="quick-stats">
         <div class="stat-chip">
           <span class="label">HTTP Port:</span>
-          <span class="val" id="stat-port">8500</span>
+          <span class="val" id="stat-port">8600</span>
         </div>
         <div class="stat-chip">
           <span class="label">WS Route:</span>
@@ -1850,7 +1850,7 @@
 
     // Fallback baseline defaults (only used if /api/appsettings is unreachable)
     const FALLBACK_CONFIG = {
-      "httpport": 8500,
+      "httpport": 8600,
       "wsroute": "/api/chartserver-stream",
       "debug": false,
       "uselocaltime": true,
@@ -2051,7 +2051,7 @@
         merged.defaultposition = { lon: -98.23643, lat: 30.73659 };
       }
 
-      merged.httpport = parseInt(merged.httpport, 10) || 8500;
+      merged.httpport = parseInt(merged.httpport, 10) || 8600;
       merged.maxmetarcount = parseInt(merged.maxmetarcount, 10) || 800;
       if (input && input.wxupdateintervalminutes === undefined && input.wxupdateintervalmsec !== undefined) {
         merged.wxupdateintervalminutes = Math.max(1, Math.round(Number(input.wxupdateintervalmsec) / 60000)) || 10;
@@ -2164,7 +2164,7 @@
     function readFormState() {
       const selectedUnit = document.querySelector('input[name="distanceunit"]:checked');
       return {
-        httpport: parseInt(document.getElementById("input-httpport").value, 10) || 8500,
+        httpport: parseInt(document.getElementById("input-httpport").value, 10) || 8600,
         wsroute: document.getElementById("input-wsroute").value.trim(),
         debug: document.getElementById("toggle-debug").checked,
         uselocaltime: document.getElementById("toggle-uselocaltime").checked,
@@ -2546,15 +2546,20 @@
         });
 
         if (res.ok) {
+          let result = {};
           const contentType = res.headers.get("content-type");
           if (contentType && contentType.includes("application/json")) {
-            await res.json().catch(() => ({}));
+            result = await res.json().catch(() => ({}));
           }
           initialLoadedState = JSON.parse(JSON.stringify(currentState));
           rawServerConfig = JSON.parse(JSON.stringify(payload));
           localStorage.setItem("mapserver_settings", JSON.stringify(payload));
           checkDirtyState();
-          showToast("Settings successfully saved to /api/settings/edit!", "success");
+          if (result.restartRequired) {
+            showToast(`Settings saved! Restart the server/container to bind port ${result.newPort}, then open http://${location.hostname}:${result.newPort}`, "info");
+          } else {
+            showToast("Settings successfully saved to /api/settings/edit!", "success");
+          }
         } else {
           throw new Error(`Server returned status HTTP ${res.status}`);
         }
