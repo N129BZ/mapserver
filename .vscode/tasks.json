@@ -6,6 +6,21 @@
       "type": "shell",
       "command": "[ -s \"$HOME/.nvm/nvm.sh\" ] && . \"$HOME/.nvm/nvm.sh\"; npm run build-client",
       "problemMatcher": [],
+      "group": "build"
+    },
+    {
+      "label": "start-mapserver-runner",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "/home/bro/sources/actions-runner/manage-runners.sh",
+        "-m",
+        "-1"
+      ],
+      "dependsOn": [
+        "build-client"
+      ],
+      "problemMatcher": [],
       "group": {
         "kind": "build",
         "isDefault": true
