@@ -483,6 +483,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             center: defaultPosition,
             zoom: configuration.startupzoom,
             enableRotation: false,
+            constrainResolution: true,
             minZoom: 1,
             maxZoom: 22,
             visible: true
@@ -932,6 +933,8 @@ document.addEventListener('DOMContentLoaded', async function () {
                             tileLoadFunction: mbtilesTileLoadFunction,
                             maxZoom: Number.isFinite(parsedMaxZoom) ? parsedMaxZoom : undefined,
                             minZoom: Number.isFinite(parsedMinZoom) ? parsedMinZoom : undefined,
+                            zDirection: -1,
+                            transition: 0,
                             attributions: metadata && metadata.attribution ? metadata.attribution : undefined,
                             attributionsCollapsible: false,
                         }),

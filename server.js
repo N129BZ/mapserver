@@ -683,6 +683,26 @@ function handleTile(request, response) {
 }
 
 /**
+ * Detect image MIME type from buffer magic bytes.
+ * @param {Buffer} buffer 
+ * @returns {string} MIME type
+ */
+function getTileContentType(buffer) {
+    if (buffer && buffer.length >= 8) {
+        if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) {
+            return 'image/png';
+        }
+        if (buffer[0] === 0xFF && buffer[1] === 0xD8) {
+            return 'image/jpeg';
+        }
+        if (buffer.length >= 12 && buffer.toString('ascii', 0, 4) === 'RIFF' && buffer.toString('ascii', 8, 12) === 'WEBP') {
+            return 'image/webp';
+        }
+    }
+    return 'image/webp';
+}
+
+/**
  * Get all tiles from the passed database that match the supplied 
  * z,x,y indices and then send them back to the requesting client   
  * @param {integer} z 
@@ -708,9 +728,13 @@ function loadTile(z, x, y, response, db) {
             response.writeHead(204, { 'Cache-Control': 'public, max-age=86400' });
             response.end();
         } else {
-            response.writeHead(200);
-            response.write(row.tile_data);
-            response.end();
+            const contentType = getTileContentType(row.tile_data);
+            response.writeHead(200, {
+                'Content-Type': contentType,
+                'Content-Length': row.tile_data.length,
+                'Cache-Control': 'public, max-age=604800, immutable'
+            });
+            response.end(row.tile_data);
         }
     }
     catch (err) {
