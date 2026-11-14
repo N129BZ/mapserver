@@ -21,7 +21,7 @@ ENV NODE_ENV=production
 RUN apk add --no-cache python3 make g++
 
 COPY package*.json ./
-RUN npm install && npm run build
+RUN npm install --omit=dev
 
 # Aligned paths: copy from /mapserver instead of /app
 COPY --from=builder /mapserver/client/dist ./client/dist
